@@ -204,7 +204,7 @@ export default function Dashboard() {
   const declining = stocks.filter(s => s.dayPerf < 0).length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Page header */}
       <div>
         <h1 className="text-white text-xl font-bold">Market Overview</h1>
@@ -212,7 +212,7 @@ export default function Dashboard() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <SummaryCard label="FTSE 100" value={indexLevel.toLocaleString('en-GB')}
           sub={formatPerf(avgDayPerf)} subColor={perfColor(avgDayPerf)} />
         <SummaryCard label="Advancing" value={String(advancing)}
@@ -228,7 +228,7 @@ export default function Dashboard() {
       <IndexChart stocks={stocks} />
 
       {/* Top gainers and decliners */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
         <div>
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={15} className="text-emerald-400" />

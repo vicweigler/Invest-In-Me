@@ -84,22 +84,22 @@ export default function StockTable() {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Page header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6">
         <div>
           <h1 className="text-white text-xl font-bold">FTSE 100</h1>
           <p className="text-slate-500 text-sm mt-0.5">{filtered.length} companies{sector !== 'All Sectors' ? ` in ${sector}` : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Search */}
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by name or symbol…"
-              className="bg-[#0F172A] border border-white/[0.08] rounded-lg pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 w-52"
+              className="w-full sm:w-52 bg-[#0F172A] border border-white/[0.08] rounded-lg pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50"
             />
           </div>
           {/* Sector filter */}

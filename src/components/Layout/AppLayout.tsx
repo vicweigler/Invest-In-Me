@@ -73,7 +73,6 @@ export default function AppLayout() {
   const { stocks, lastUpdated } = useMarketStore();
   const indexLevel = ftse100IndexLevel(stocks);
 
-  // Calculate index day change (avg of all stocks)
   const avgDayPerf = stocks.length
     ? stocks.reduce((s, st) => s + st.dayPerf, 0) / stocks.length
     : 0;
@@ -83,19 +82,18 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-[#0A0F1E] flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* ── TOP HEADER ─────────────────────────────────────────────────────── */}
-      <header className="h-14 border-b border-white/[0.06] bg-[#0D1424] flex items-center px-4 gap-6 shrink-0 z-50">
+      <header className="h-14 border-b border-white/[0.06] bg-[#0D1424] flex items-center px-4 gap-3 shrink-0 z-50">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
+        <Link to="/" className="flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
             <TrendingUp size={16} className="text-white" />
           </div>
           <span className="text-white font-bold text-base tracking-tight">Invest<span className="text-indigo-400">-In-It</span></span>
         </Link>
 
-        <div className="w-px h-6 bg-white/10" />
-
-        {/* FTSE 100 ticker */}
-        <div className="flex items-center gap-3">
+        {/* FTSE 100 ticker — hidden on mobile */}
+        <div className="hidden sm:flex items-center gap-3 ml-2">
+          <div className="w-px h-6 bg-white/10" />
           <div className="flex items-center gap-2">
             <Activity size={13} className="text-slate-500" />
             <span className="text-slate-400 text-xs font-medium">FTSE 100</span>
@@ -107,16 +105,26 @@ export default function AppLayout() {
           </div>
         </div>
 
-        <div className="flex-1" />
-        <LiveClock />
+        {/* FTSE summary on mobile — compact */}
+        <div className="flex sm:hidden items-center gap-1.5 ml-1">
+          <span className="text-slate-500 text-xs">FTSE</span>
+          <span className="text-white font-mono text-xs font-semibold">{indexLevel.toLocaleString('en-GB')}</span>
+          <span className={clsx('text-xs font-semibold', perfColor(avgDayPerf))}>{formatPerf(avgDayPerf)}</span>
+        </div>
 
-        {/* User avatar + sign out */}
+        <div className="flex-1" />
+
+        {/* Clock — hidden on mobile */}
+        <div className="hidden sm:block">
+          <LiveClock />
+        </div>
+
         <UserMenu />
       </header>
 
       <div className="flex flex-1 min-h-0">
-        {/* ── SIDEBAR ────────────────────────────────────────────────────── */}
-        <aside className="w-56 border-r border-white/[0.06] bg-[#0D1424] flex flex-col shrink-0">
+        {/* ── SIDEBAR — desktop only ──────────────────────────────────────── */}
+        <aside className="hidden md:flex w-56 border-r border-white/[0.06] bg-[#0D1424] flex-col shrink-0">
           <nav className="flex flex-col gap-1 p-3 pt-4">
             {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
               const active = to === '/'
@@ -153,10 +161,32 @@ export default function AppLayout() {
         </aside>
 
         {/* ── MAIN CONTENT ───────────────────────────────────────────────── */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto pb-16 md:pb-0">
           <Outlet />
         </main>
       </div>
+
+      {/* ── BOTTOM NAV — mobile only ────────────────────────────────────── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0D1424] border-t border-white/[0.06] flex items-center z-50">
+        {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+          const active = to === '/'
+            ? location.pathname === '/'
+            : location.pathname.startsWith(to);
+          return (
+            <Link
+              key={to}
+              to={to}
+              className={clsx(
+                'flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all',
+                active ? 'text-indigo-400' : 'text-slate-500'
+              )}
+            >
+              <Icon size={20} />
+              <span className="text-[10px] font-medium">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
