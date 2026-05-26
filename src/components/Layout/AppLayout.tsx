@@ -161,7 +161,7 @@ export default function AppLayout() {
         </aside>
 
         {/* ── MAIN CONTENT ───────────────────────────────────────────────── */}
-        <main className="flex-1 overflow-auto pb-16 md:pb-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16 md:pb-0 min-w-0">
           <Outlet />
         </main>
       </div>

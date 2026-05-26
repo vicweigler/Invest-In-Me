@@ -285,7 +285,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('trading');
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center">
