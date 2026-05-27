@@ -1,0 +1,11 @@
+{
+  "name": "invest-in-it-functions",
+  "description": "Firebase Cloud Functions — quotes proxy",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "^4.9.0",
+    "yahoo-finance2": "^3.14.1"
+  },
+  "private": true
+}
