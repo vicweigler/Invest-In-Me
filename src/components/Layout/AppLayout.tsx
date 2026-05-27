@@ -60,7 +60,7 @@ function UserMenu() {
       <button
         onClick={signOut}
         title="Sign out"
-        className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] rounded-lg transition-all"
+        className="hidden sm:block p-1.5 text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] rounded-lg transition-all"
       >
         <LogOut size={15} />
       </button>
@@ -71,6 +71,7 @@ function UserMenu() {
 export default function AppLayout() {
   const location = useLocation();
   const { stocks, lastUpdated } = useMarketStore();
+  const { signOut } = useAuthStore();
   const indexLevel = ftse100IndexLevel(stocks);
 
   const avgDayPerf = stocks.length
@@ -168,6 +169,14 @@ export default function AppLayout() {
 
       {/* ── BOTTOM NAV — mobile only ────────────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0D1424] border-t border-white/[0.06] flex items-center z-50">
+        {/* Sign out — leftmost */}
+        <button
+          onClick={signOut}
+          className="flex-1 flex flex-col items-center justify-center gap-1 py-2 text-slate-500 transition-all"
+        >
+          <LogOut size={20} />
+          <span className="text-[10px] font-medium">Sign Out</span>
+        </button>
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
           const active = to === '/'
             ? location.pathname === '/'

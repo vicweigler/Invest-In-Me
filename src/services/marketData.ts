@@ -26,17 +26,34 @@ function toYahooSymbol(symbol: string): string {
   return SYMBOL_OVERRIDES[symbol] ?? `${symbol}.L`;
 }
 
+// Yahoo Finance direct endpoint — works when CORS is not blocked (production fallback)
+const YF_DIRECT = 'https://query1.finance.yahoo.com/v7/finance/quote';
+const YF_FIELDS = 'regularMarketPrice,regularMarketChangePercent,marketCap,trailingPE,trailingAnnualDividendYield,currency';
+
 async function fetchBatch(symbols: string[]): Promise<RealQuote[]> {
   const yahooSymbols = symbols.map(toYahooSymbol);
   const query = yahooSymbols.join(',');
-  // Calls the server-side Vite plugin endpoint (avoids CORS / auth issues)
-  const url = `/api/quotes?symbols=${encodeURIComponent(query)}`;
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Quote API HTTP ${response.status}`);
+  // Try sources in order. The Vite dev proxy works locally; Yahoo Finance direct
+  // is attempted as a production fallback (succeeds when CORS headers are permissive).
+  const sources = [
+    `/api/quotes?symbols=${encodeURIComponent(query)}`,
+    `${YF_DIRECT}?symbols=${encodeURIComponent(query)}&fields=${YF_FIELDS}&formatted=false&corsDomain=finance.yahoo.com`,
+  ];
 
-  const data = await response.json();
-  const results: YahooQuoteResult[] = data?.quoteResponse?.result ?? [];
+  let results: YahooQuoteResult[] = [];
+
+  for (const url of sources) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json(); // throws SyntaxError if response is HTML (Firebase catch-all)
+      const r: YahooQuoteResult[] = data?.quoteResponse?.result ?? [];
+      if (r.length > 0) { results = r; break; }
+    } catch {
+      // Network error, CORS block, or JSON parse failure — try next source
+    }
+  }
 
   return results
     .filter((q) => q.regularMarketPrice != null)
