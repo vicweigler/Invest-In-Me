@@ -955,15 +955,15 @@ export default function Portfolio() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCompare(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-all"
+            className="flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-all"
           >
-            <Users size={12} /> Compare
+            <Users size={14} /><span className="hidden sm:inline">Compare</span>
           </button>
           <button
             onClick={() => setShowResetConfirm(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-all"
+            className="flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-all"
           >
-            <RefreshCw size={12} /> Reset Portfolio
+            <RefreshCw size={14} /><span className="hidden sm:inline">Reset Portfolio</span>
           </button>
         </div>
       </div>
