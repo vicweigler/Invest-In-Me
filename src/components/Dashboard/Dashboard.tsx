@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, TrendingDown, Activity, BarChart2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, BarChart2, ArrowUpRight, ArrowDownRight, ScanSearch, X } from 'lucide-react';
 import { useMarketStore, selectTopGainers, selectTopDecliners, ftse100IndexLevel } from '../../store/marketStore';
 import { formatPrice, formatPerf, formatMarketCap, perfColor, perfBg } from '../../data/generator';
 import { SECTOR_COLORS } from '../../data/companies';
@@ -170,9 +170,87 @@ function IndexChart({ stocks }: { stocks: StockData[] }) {
   );
 }
 
+// ── STOCK SCAN MODAL ─────────────────────────────────────────────────────
+function StockScanModal({ stocks, onClose, onSelect }: {
+  stocks: StockData[];
+  onClose: () => void;
+  onSelect: (symbol: string) => void;
+}) {
+  const picks = useMemo(() =>
+    [...stocks]
+      .filter(s => s.threeMonthPerf > 0)
+      .sort((a, b) => b.threeMonthPerf - a.threeMonthPerf)
+      .slice(0, 5),
+  [stocks]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#0D1424] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center">
+              <ScanSearch size={16} className="text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-white font-bold text-sm">Stock Scan</h2>
+              <p className="text-slate-500 text-xs">Top 5 by 3-month momentum</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-slate-300 p-1.5 rounded-lg hover:bg-white/[0.04] transition-all"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Picks */}
+        <div className="p-3 space-y-1">
+          {picks.map((stock, i) => (
+            <button
+              key={stock.id}
+              onClick={() => { onSelect(stock.symbol); onClose(); }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.04] transition-all text-left group"
+            >
+              <span className="w-6 h-6 rounded-full bg-indigo-500/15 text-indigo-400 text-[10px] font-bold flex items-center justify-center shrink-0">
+                {i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-white font-bold text-sm">{stock.symbol}</span>
+                  <span className="text-slate-500 text-[10px] bg-white/[0.04] px-1.5 py-0.5 rounded">{stock.sector}</span>
+                </div>
+                <p className="text-slate-500 text-xs truncate mt-0.5">{stock.name}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-emerald-400 font-mono font-bold text-sm">+{stock.threeMonthPerf.toFixed(2)}%</p>
+                <p className="text-slate-500 text-xs font-mono">{formatPrice(stock.currentPrice)}</p>
+              </div>
+              <ArrowUpRight size={14} className="text-slate-600 group-hover:text-indigo-400 shrink-0 transition-colors" />
+            </button>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-white/[0.06]">
+          <p className="text-slate-600 text-[10px]">Based on 3-month price momentum. Not financial advice.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [showScan, setShowScan] = useState(false);
   const { stocks, isLoaded, loadMarket, tickPrices } = useMarketStore();
 
   useEffect(() => {
@@ -206,10 +284,27 @@ export default function Dashboard() {
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-white text-xl font-bold">Market Overview</h1>
-        <p className="text-slate-500 text-sm mt-0.5">FTSE 100 — {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-white text-xl font-bold">Market Overview</h1>
+          <p className="text-slate-500 text-sm mt-0.5">FTSE 100 — {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        </div>
+        <button
+          onClick={() => setShowScan(true)}
+          className="flex items-center gap-2 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 rounded-xl text-indigo-300 text-sm font-semibold transition-all shrink-0"
+        >
+          <ScanSearch size={15} />
+          Stock Scan
+        </button>
       </div>
+
+      {showScan && (
+        <StockScanModal
+          stocks={stocks}
+          onClose={() => setShowScan(false)}
+          onSelect={symbol => navigate(`/stock/${symbol}`)}
+        />
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
