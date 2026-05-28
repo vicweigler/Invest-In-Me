@@ -210,42 +210,12 @@ function CompareModal({
       return { ...h, currentPrice, value, costBasis, pnl };
     }).sort((a, b) => b.value - a.value);
 
-    const StatCol = ({ label, mine, theirs, higherIsBetter = true }: {
-      label: string; mine: number; theirs: number; higherIsBetter?: boolean;
-      format?: (v: number) => string;
-    }) => {
-      const iWin = higherIsBetter ? mine > theirs : mine < theirs;
-      const theyWin = higherIsBetter ? theirs > mine : theirs < mine;
-      const minVal = Math.min(mine, theirs, 0);
-      const myAdj = mine - minVal;
-      const theirAdj = theirs - minVal;
-      const barTotal = myAdj + theirAdj;
-      const myBarPct = barTotal > 0 ? Math.max(5, Math.min(95, (myAdj / barTotal) * 100)) : 50;
-      return (
-        <div className="bg-white/[0.03] rounded-xl p-3 text-center">
-          <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-2">{label}</p>
-          <div className="flex items-end justify-around gap-1">
-            <div>
-              <p className={clsx('font-mono font-bold text-base', iWin ? 'text-emerald-400' : 'text-slate-300')}>
-                {mine >= 0 ? '' : '-'}£{Math.abs(mine).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-              <p className="text-slate-600 text-[10px] mt-0.5">{me!.displayName.split(' ')[0]}</p>
-            </div>
-            <span className="text-slate-600 text-xs font-bold mb-1">vs</span>
-            <div>
-              <p className={clsx('font-mono font-bold text-base', theyWin ? 'text-emerald-400' : 'text-slate-300')}>
-                {theirs >= 0 ? '' : '-'}£{Math.abs(theirs).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-              <p className="text-slate-600 text-[10px] mt-0.5">{rival.displayName.split(' ')[0]}</p>
-            </div>
-          </div>
-          <div className="mt-2 flex h-1 rounded-full overflow-hidden">
-            <div className={clsx('h-full', iWin ? 'bg-emerald-500/70' : 'bg-slate-600/50')} style={{ width: `${myBarPct}%` }} />
-            <div className={clsx('h-full flex-1', theyWin ? 'bg-emerald-500/70' : 'bg-slate-600/50')} />
-          </div>
-        </div>
-      );
-    };
+    const BAR_H = 90;
+    const barMetrics = [
+      { key: 'value',  label: 'Total Value', myVal: me.liveValue, theirVal: rival.liveValue, fmt: (v: number) => `£${(v / 1000).toFixed(0)}k` },
+      { key: 'return', label: 'Return %',     myVal: me.pnlPct,    theirVal: rival.pnlPct,   fmt: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` },
+      { key: 'pnl',    label: 'Total P&L',   myVal: me.pnl,       theirVal: rival.pnl,      fmt: (v: number) => `${v >= 0 ? '+' : '-'}£${(Math.abs(v) / 1000).toFixed(1)}k` },
+    ];
 
     const winner = me.pnlPct >= rival.pnlPct ? me : rival;
     const iAmWinning = me.pnlPct >= rival.pnlPct;
@@ -331,11 +301,43 @@ function CompareModal({
             </p>
           </div>
 
-          {/* Stat comparison grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <StatCol label="Total Value" mine={me.liveValue} theirs={rival.liveValue} />
-            <StatCol label="Total P&L" mine={me.pnl} theirs={rival.pnl} />
-            <StatCol label="Cash" mine={me.cashBalance} theirs={rival.cashBalance} />
+          {/* VS Bar Charts */}
+          <div className="flex gap-3">
+            {[true, false].map(pIsMe => {
+              const player = pIsMe ? me : rival;
+              const isWinner = player.uid === winner.uid;
+              return (
+                <div key={player.uid} className={clsx(
+                  'flex-1 rounded-xl p-4 border',
+                  isWinner ? 'bg-emerald-500/[0.05] border-emerald-500/[0.12]' : 'bg-white/[0.03] border-white/[0.05]',
+                )}>
+                  <p className={clsx('text-center text-xs font-bold mb-4', isWinner ? 'text-emerald-400' : 'text-slate-400')}>
+                    {pIsMe ? 'You' : player.displayName.split(' ')[0]}{isWinner ? ' 👑' : ''}
+                  </p>
+                  <div className="flex items-end justify-around gap-2" style={{ height: `${BAR_H}px` }}>
+                    {barMetrics.map(m => {
+                      const val = pIsMe ? m.myVal : m.theirVal;
+                      const maxAbs = Math.max(Math.abs(m.myVal), Math.abs(m.theirVal), 0.01);
+                      const barH = Math.max(6, (Math.abs(val) / maxAbs) * BAR_H * 0.80);
+                      const isBetterHere = pIsMe ? m.myVal >= m.theirVal : m.theirVal >= m.myVal;
+                      const isNeg = val < 0;
+                      return (
+                        <div key={m.key} className="flex-1 flex flex-col items-center justify-end gap-1 h-full">
+                          <p className={clsx('text-[9px] font-mono font-bold text-center', isNeg ? 'text-red-400' : isBetterHere ? 'text-emerald-400' : 'text-slate-400')}>
+                            {m.fmt(val)}
+                          </p>
+                          <div
+                            className={clsx('w-full rounded-t transition-all', isNeg ? 'bg-red-500/80' : isBetterHere ? 'bg-emerald-500' : 'bg-slate-600/70')}
+                            style={{ height: `${barH}px` }}
+                          />
+                          <p className="text-[8px] text-slate-600 text-center leading-tight">{m.label}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-white/[0.03] rounded-xl p-3 text-center">
