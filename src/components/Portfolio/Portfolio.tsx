@@ -272,35 +272,6 @@ function CompareModal({
             })}
           </div>
 
-          {/* Head-to-head split bar */}
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className={clsx('text-xs font-bold', iAmWinning ? 'text-emerald-400' : 'text-slate-400')}>
-                {iAmWinning && '👑 '}You
-              </span>
-              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Head to Head</span>
-              <span className={clsx('text-xs font-bold', !iAmWinning ? 'text-emerald-400' : 'text-slate-400')}>
-                {rival.displayName.split(' ')[0]}{!iAmWinning && ' 👑'}
-              </span>
-            </div>
-            <div className="flex h-6 rounded-lg overflow-hidden gap-[2px]">
-              <div
-                className={clsx('flex items-center justify-end pr-2 text-[9px] font-bold text-white transition-all', iAmWinning ? 'bg-emerald-500' : 'bg-slate-600')}
-                style={{ width: `${myHeadShare}%` }}
-              >
-                {me.pnlPct.toFixed(1)}%
-              </div>
-              <div
-                className={clsx('flex items-center justify-start pl-2 text-[9px] font-bold text-white transition-all flex-1', !iAmWinning ? 'bg-emerald-500' : 'bg-slate-700')}
-              >
-                {rival.pnlPct.toFixed(1)}%
-              </div>
-            </div>
-            <p className={clsx('text-center text-xs font-semibold mt-2', iAmWinning ? 'text-emerald-400' : 'text-amber-400')}>
-              {iAmWinning ? `👆 You're leading by ${pnlGap.toFixed(2)}%` : `⚠️ Behind by ${pnlGap.toFixed(2)}%`}
-            </p>
-          </div>
-
           {/* VS Bar Charts */}
           <div className="flex gap-3">
             {[true, false].map(pIsMe => {
@@ -309,9 +280,9 @@ function CompareModal({
               return (
                 <div key={player.uid} className={clsx(
                   'flex-1 rounded-xl p-4 border',
-                  isWinner ? 'bg-emerald-500/[0.05] border-emerald-500/[0.12]' : 'bg-white/[0.03] border-white/[0.05]',
+                  pIsMe ? 'bg-white/[0.08] border-white/[0.16]' : 'bg-white/[0.02] border-white/[0.04]',
                 )}>
-                  <p className={clsx('text-center text-xs font-bold mb-4', isWinner ? 'text-emerald-400' : 'text-slate-400')}>
+                  <p className={clsx('text-center text-xs font-bold mb-4', isWinner ? 'text-emerald-400' : pIsMe ? 'text-slate-300' : 'text-slate-500')}>
                     {pIsMe ? 'You' : player.displayName.split(' ')[0]}{isWinner ? ' 👑' : ''}
                   </p>
                   <div className="flex items-end justify-around gap-2" style={{ height: `${BAR_H}px` }}>
