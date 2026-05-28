@@ -11,9 +11,9 @@ import { formatPerf, perfColor } from '../../data/generator';
 import clsx from 'clsx';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/', label: 'My Portfolio', icon: Briefcase },
   { to: '/market', label: 'FTSE 100', icon: BarChart2 },
-  { to: '/portfolio', label: 'My Portfolio', icon: Briefcase },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 

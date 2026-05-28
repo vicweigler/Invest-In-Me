@@ -9,7 +9,7 @@ import {
   CGT_RATES, TAX_BRACKET_LABELS, DEFAULT_CGT_ALLOWANCE
 } from '../store/settingsStore';
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 type TabId = 'trading' | 'tax';
 

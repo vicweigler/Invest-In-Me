@@ -59,10 +59,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route element={user ? <AppLayout /> : <Navigate to="/login" replace />}>
-          <Route index element={<DashboardPage />} />
+          <Route index element={<PortfolioPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="market" element={<MarketPage />} />
           <Route path="stock/:symbol" element={<StockDetailPage />} />
-          <Route path="portfolio" element={<PortfolioPage />} />
+          <Route path="portfolio" element={<Navigate to="/" replace />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
