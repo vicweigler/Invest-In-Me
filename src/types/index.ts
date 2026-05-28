@@ -51,6 +51,14 @@ export interface StockData extends CompanyDefinition {
   low52w: number;
   threeMonthPerf: number;
   sixMonthPerf: number;
+  // Generated fundamental metrics (seeded simulation)
+  eps: number | null;
+  revenueGrowth: number;
+  debtToEquity: number;
+  operatingCashFlowMargin: number;
+  netProfitMargin: number;
+  returnOnAssets: number;
+  moatScore: number;
 }
 
 export interface NewsArticle {
