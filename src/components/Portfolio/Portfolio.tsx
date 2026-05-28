@@ -44,8 +44,9 @@ function CompareModal({
 }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [profiles, setProfiles] = useState<PublicProfile[]>([]);
-  const [rival, setRival] = useState<RankedProfile | null>(null);
-  const [rivalHoldingsOpen, setRivalHoldingsOpen] = useState(true);
+  const [rivals, setRivals] = useState<RankedProfile[]>([]);
+  const [comparing, setComparing] = useState(false);
+  const [rivalHoldingsOpen, setRivalHoldingsOpen] = useState<Record<string, boolean>>({});
   const [myHoldingsOpen, setMyHoldingsOpen] = useState(false);
 
   useEffect(() => {
@@ -129,25 +130,36 @@ function CompareModal({
         )}
         {status === 'loaded' && ranked.map(p => {
           const isMe = p.uid === currentUid;
+          const isSelected = rivals.some(r => r.uid === p.uid);
+          const atMax = rivals.length >= 3;
           const avatarColor = ['#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6'][
             p.displayName.charCodeAt(0) % 6
           ];
           return (
             <button
               key={p.uid}
-              disabled={isMe}
-              onClick={() => { if (!isMe) setRival(p); }}
+              disabled={isMe || (atMax && !isSelected)}
+              onClick={() => {
+                if (isMe) return;
+                setRivals(prev =>
+                  isSelected ? prev.filter(r => r.uid !== p.uid) : [...prev, p]
+                );
+              }}
               className={clsx(
                 'w-full p-3 rounded-xl transition-all text-left flex items-center gap-3 relative overflow-hidden',
                 isMe
                   ? 'bg-white/[0.04] border border-white/[0.08] cursor-default'
-                  : p.rank === 1
-                    ? 'border border-yellow-500/[0.15] bg-yellow-500/[0.04] hover:bg-yellow-500/[0.07] cursor-pointer group'
-                    : p.rank === 2
-                      ? 'border border-slate-400/[0.12] bg-slate-400/[0.03] hover:bg-slate-400/[0.06] cursor-pointer group'
-                      : p.rank === 3
-                        ? 'border border-amber-600/[0.12] bg-amber-600/[0.03] hover:bg-amber-600/[0.06] cursor-pointer group'
-                        : 'hover:bg-white/[0.04] cursor-pointer group',
+                  : isSelected
+                    ? 'border border-violet-500/40 bg-violet-500/[0.08] cursor-pointer group'
+                    : atMax
+                      ? 'opacity-40 cursor-not-allowed'
+                      : p.rank === 1
+                        ? 'border border-yellow-500/[0.15] bg-yellow-500/[0.04] hover:bg-yellow-500/[0.07] cursor-pointer group'
+                        : p.rank === 2
+                          ? 'border border-slate-400/[0.12] bg-slate-400/[0.03] hover:bg-slate-400/[0.06] cursor-pointer group'
+                          : p.rank === 3
+                            ? 'border border-amber-600/[0.12] bg-amber-600/[0.03] hover:bg-amber-600/[0.06] cursor-pointer group'
+                            : 'hover:bg-white/[0.04] cursor-pointer group',
               )}
             >
               {/* Rank */}
@@ -178,7 +190,12 @@ function CompareModal({
                   {p.pnl >= 0 ? '+' : ''}£{Math.abs(p.pnl).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
-              {!isMe && <ArrowUpRight size={14} className="text-slate-600 group-hover:text-violet-400 shrink-0 transition-colors" />}
+              {isSelected
+                ? <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0">
+                    <span className="text-white text-[10px] font-bold">✓</span>
+                  </div>
+                : !isMe && <ArrowUpRight size={14} className="text-slate-600 group-hover:text-violet-400 shrink-0 transition-colors" />
+              }
               {/* Return % progress bar */}
               <div className="absolute bottom-0 left-0 h-[2px] w-full bg-white/[0.03]">
                 <div
@@ -191,54 +208,65 @@ function CompareModal({
         })}
       </div>
 
-      <div className="px-5 py-3 border-t border-white/[0.06] shrink-0">
-        <p className="text-slate-600 text-[10px]">Click any player to see a side-by-side comparison. Your portfolio is published automatically when you trade.</p>
+      <div className="px-4 py-3 border-t border-white/[0.06] shrink-0 flex items-center justify-between gap-3">
+        <p className="text-slate-600 text-[10px] leading-tight">
+          {rivals.length === 0
+            ? 'Select up to 3 players to compare'
+            : `${rivals.length}/3 selected`}
+        </p>
+        {rivals.length > 0 && (
+          <button
+            onClick={() => {
+              setRivalHoldingsOpen(Object.fromEntries(rivals.map(r => [r.uid, true])));
+              setComparing(true);
+            }}
+            className="shrink-0 px-4 py-2 rounded-xl bg-violet-500 hover:bg-violet-400 text-white text-xs font-bold transition-colors"
+          >
+            Compare ({rivals.length}) →
+          </button>
+        )}
       </div>
     </>
   );
 
   // ── Compare view ────────────────────────────────────────────────────────
   const CompareView = () => {
-    if (!rival || !me) return null;
+    if (!me || rivals.length === 0) return null;
 
-    const rivalHoldings = rival.holdings.map(h => {
-      const stock = stocks.find(s => s.id === h.companyId);
-      const currentPrice = stock?.currentPrice ?? h.avgBuyPrice;
-      const value = (h.shares * currentPrice) / 100;
-      const costBasis = (h.shares * h.avgBuyPrice) / 100;
-      const pnl = value - costBasis;
-      return { ...h, currentPrice, value, costBasis, pnl };
-    }).sort((a, b) => b.value - a.value);
+    const allPlayers = [me, ...rivals];
+    const winner = [...allPlayers].sort((a, b) => b.pnlPct - a.pnlPct)[0];
 
-    const BAR_H = 90;
-    const barMetrics = [
-      { key: 'value',  label: 'Total Value', myVal: me.liveValue, theirVal: rival.liveValue, fmt: (v: number) => `£${(v / 1000).toFixed(0)}k` },
-      { key: 'return', label: 'Return %',     myVal: me.pnlPct,    theirVal: rival.pnlPct,   fmt: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` },
-      { key: 'pnl',    label: 'Total P&L',   myVal: me.pnl,       theirVal: rival.pnl,      fmt: (v: number) => `${v >= 0 ? '+' : '-'}£${(Math.abs(v) / 1000).toFixed(1)}k` },
+    // Panel colours: You = grey, rivals = emerald / violet / amber
+    const PANEL = [
+      { bg: 'bg-white/[0.06]',      border: 'border-white/[0.10]',      label: 'text-slate-300',   bar: 'bg-slate-400' },
+      { bg: 'bg-emerald-500/10',    border: 'border-emerald-500/20',    label: 'text-emerald-400', bar: 'bg-emerald-500' },
+      { bg: 'bg-violet-500/10',     border: 'border-violet-500/20',     label: 'text-violet-400',  bar: 'bg-violet-500' },
+      { bg: 'bg-amber-500/10',      border: 'border-amber-500/20',      label: 'text-amber-400',   bar: 'bg-amber-500' },
     ];
 
-    const winner = me.pnlPct >= rival.pnlPct ? me : rival;
-    const iAmWinning = me.pnlPct >= rival.pnlPct;
-    const minPct = Math.min(me.pnlPct, rival.pnlPct);
-    const myPctAdj = me.pnlPct - Math.min(0, minPct);
-    const theirPctAdj = rival.pnlPct - Math.min(0, minPct);
-    const splitTotal = myPctAdj + theirPctAdj;
-    const myHeadShare = splitTotal > 0 ? Math.max(5, Math.min(95, (myPctAdj / splitTotal) * 100)) : 50;
-    const pnlGap = Math.abs(me.pnlPct - rival.pnlPct);
+    const metricDefs = [
+      { key: 'value',  label: 'Portfolio', fmt: (v: number) => `£${(v/1000).toFixed(0)}k`,                       get: (p: RankedProfile) => p.liveValue },
+      { key: 'return', label: 'Return %',  fmt: (v: number) => `${v>=0?'+':''}${v.toFixed(1)}%`,                 get: (p: RankedProfile) => p.pnlPct },
+      { key: 'pnl',    label: 'P&L',       fmt: (v: number) => `${v>=0?'+':'-'}£${(Math.abs(v)/1000).toFixed(1)}k`, get: (p: RankedProfile) => p.pnl },
+    ];
+    const BAR_H = 80;
+
+    const iAmWinning = winner.uid === currentUid;
+    const gridCols = allPlayers.length === 2 ? 'grid-cols-2' : allPlayers.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
 
     return (
       <>
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06] shrink-0">
           <div className="flex items-center gap-2.5">
-            <button onClick={() => setRival(null)}
+            <button onClick={() => setComparing(false)}
               className="text-slate-500 hover:text-slate-300 p-1 rounded-lg hover:bg-white/[0.04] transition-all">
               <ArrowLeft size={16} />
             </button>
             <div>
-              <h2 className="text-white font-bold text-sm">{me.displayName} vs {rival.displayName}</h2>
+              <h2 className="text-white font-bold text-sm">You vs {rivals.length} player{rivals.length !== 1 ? 's' : ''}</h2>
               <p className={clsx('text-xs font-semibold', iAmWinning ? 'text-emerald-400' : 'text-amber-400')}>
-                {iAmWinning ? '🏆 You are winning' : `🏆 ${rival.displayName} is winning`}
+                {iAmWinning ? '🏆 You are winning' : `🏆 ${winner.displayName} is winning`}
               </p>
             </div>
           </div>
@@ -249,23 +277,23 @@ function CompareModal({
 
         <div className="overflow-y-auto p-4 space-y-4">
           {/* P&L% banner */}
-          <div className="grid grid-cols-2 gap-3">
-            {[me, rival].map((p, i) => {
+          <div className={clsx('grid gap-3', gridCols)}>
+            {allPlayers.map((p, i) => {
               const isWinner = p.uid === winner.uid;
               return (
-                <div key={i} className={clsx(
-                  'rounded-xl p-4 text-center border',
+                <div key={p.uid} className={clsx(
+                  'rounded-xl p-3 text-center border',
                   isWinner ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.03] border-white/[0.06]'
                 )}>
-                  <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">
-                    {p.uid === currentUid ? 'You' : p.displayName}
+                  <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1 truncate">
+                    {i === 0 ? 'You' : p.displayName.split(' ')[0]}
                     {isWinner && ' 🏆'}
                   </p>
-                  <p className={clsx('font-mono font-bold text-2xl', p.pnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                  <p className={clsx('font-mono font-bold text-xl', p.pnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                     {p.pnlPct >= 0 ? '+' : ''}{p.pnlPct.toFixed(2)}%
                   </p>
-                  <p className={clsx('font-mono text-xs mt-0.5', p.pnl >= 0 ? 'text-emerald-600' : 'text-red-600')}>
-                    {p.pnl >= 0 ? '+' : ''}£{Math.abs(p.pnl).toFixed(2)} return
+                  <p className={clsx('font-mono text-[10px] mt-0.5', p.pnl >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                    {p.pnl >= 0 ? '+' : ''}£{Math.abs(p.pnl).toFixed(2)}
                   </p>
                 </div>
               );
@@ -273,47 +301,46 @@ function CompareModal({
           </div>
 
           {/* VS Bar Charts */}
-          <div className="flex gap-3">
-            {[true, false].map(pIsMe => {
-              const player = pIsMe ? me : rival;
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {allPlayers.map((player, pi) => {
+              const style = PANEL[pi];
               const isWinner = player.uid === winner.uid;
+              const holdings = pi === 0 ? currentHoldings.length : rivals[pi - 1].holdings.length;
+              const started = player.initialBalance;
               return (
-                <div key={player.uid} className={clsx(
-                  'flex-1 rounded-xl p-4 border',
-                  pIsMe ? 'bg-white/[0.06] border-white/[0.10]' : 'bg-emerald-500/10 border-emerald-500/20',
-                )}>
-                  <p className={clsx('text-center text-xs font-bold mb-4', pIsMe ? 'text-slate-300' : 'text-emerald-400')}>
-                    {pIsMe ? 'You' : player.displayName.split(' ')[0]}{isWinner ? ' 👑' : ''}
+                <div key={player.uid} className={clsx('rounded-xl p-3 border flex-1 min-w-[110px]', style.bg, style.border)}>
+                  <p className={clsx('text-center text-xs font-bold mb-3 truncate', style.label)}>
+                    {pi === 0 ? 'You' : player.displayName.split(' ')[0]}{isWinner ? ' 👑' : ''}
                   </p>
-                  <div className="flex items-end justify-around gap-2" style={{ height: `${BAR_H}px` }}>
-                    {barMetrics.map(m => {
-                      const val = pIsMe ? m.myVal : m.theirVal;
-                      const maxAbs = Math.max(Math.abs(m.myVal), Math.abs(m.theirVal), 0.01);
-                      const barH = Math.max(6, (Math.abs(val) / maxAbs) * BAR_H * 0.80);
-                      const isBetterHere = pIsMe ? m.myVal >= m.theirVal : m.theirVal >= m.myVal;
+                  <div className="flex items-end justify-around gap-1" style={{ height: `${BAR_H}px` }}>
+                    {metricDefs.map(m => {
+                      const val = m.get(player);
+                      const maxAbs = Math.max(...allPlayers.map(p => Math.abs(m.get(p))), 0.01);
+                      const barH = Math.max(4, (Math.abs(val) / maxAbs) * BAR_H * 0.80);
+                      const isBest = allPlayers.every(p => p.uid === player.uid || m.get(p) <= val);
                       const isNeg = val < 0;
                       return (
                         <div key={m.key} className="flex-1 flex flex-col items-center justify-end gap-1 h-full">
-                          <p className={clsx('text-[9px] font-mono font-bold text-center', isNeg ? 'text-red-400' : isBetterHere ? 'text-emerald-400' : 'text-slate-400')}>
+                          <p className={clsx('text-[8px] font-mono font-bold text-center leading-tight', isNeg ? 'text-red-400' : isBest ? style.label : 'text-slate-500')}>
                             {m.fmt(val)}
                           </p>
                           <div
-                            className={clsx('w-full rounded-t transition-all', isNeg ? 'bg-red-500/80' : isBetterHere ? 'bg-emerald-500' : 'bg-slate-600/70')}
+                            className={clsx('w-full rounded-t transition-all', isNeg ? 'bg-red-500/80' : isBest ? style.bar : 'bg-slate-600/50')}
                             style={{ height: `${barH}px` }}
                           />
-                          <p className="text-[8px] text-slate-600 text-center leading-tight">{m.label}</p>
+                          <p className="text-[7px] text-slate-600 text-center leading-tight">{m.label}</p>
                         </div>
                       );
                     })}
                   </div>
-                  <div className="mt-4 pt-3 border-t border-white/[0.06] grid grid-cols-2 gap-2 text-center">
+                  <div className="mt-3 pt-2.5 border-t border-white/[0.06] grid grid-cols-2 gap-1 text-center">
                     <div>
-                      <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Started With</p>
-                      <p className="font-mono font-bold text-xs text-slate-200">£{(pIsMe ? me : rival).initialBalance.toLocaleString()}</p>
+                      <p className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Started</p>
+                      <p className="font-mono font-bold text-[10px] text-slate-200">£{(started / 1000).toFixed(0)}k</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Holdings</p>
-                      <p className="font-mono font-bold text-xs text-slate-200">{pIsMe ? currentHoldings.length : rival.holdings.length}</p>
+                      <p className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Stocks</p>
+                      <p className="font-mono font-bold text-[10px] text-slate-200">{holdings}</p>
                     </div>
                   </div>
                 </div>
@@ -321,50 +348,62 @@ function CompareModal({
             })}
           </div>
 
-          {/* Rival's holdings */}
-          <div className="bg-[#0A0F1E] border border-white/[0.06] rounded-xl overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-4 py-3 text-slate-200 font-semibold text-sm"
-              onClick={() => setRivalHoldingsOpen(o => !o)}
-            >
-              <span>{rival.displayName}'s Holdings ({rivalHoldings.length})</span>
-              {rivalHoldingsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-            {rivalHoldingsOpen && (
-              rivalHoldings.length === 0
-                ? <p className="text-slate-600 text-sm text-center py-5 border-t border-white/[0.06]">No holdings yet.</p>
-                : (
-                  <div className="overflow-x-auto border-t border-white/[0.06]">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                          {['Stock', 'Shares', 'Value', 'P&L'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.04]">
-                        {rivalHoldings.map(h => (
-                          <tr key={h.companyId}>
-                            <td className="px-3 py-2.5">
-                              <p className="text-white text-xs font-bold">{h.symbol}</p>
-                              <p className="text-slate-600 text-[10px] truncate max-w-[100px]">{h.companyName}</p>
-                            </td>
-                            <td className="px-3 py-2.5 text-slate-400 font-mono text-xs">{h.shares.toLocaleString()}</td>
-                            <td className="px-3 py-2.5 text-white font-mono text-xs">£{h.value.toFixed(2)}</td>
-                            <td className="px-3 py-2.5">
-                              <span className={clsx('font-mono text-xs font-semibold', h.pnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                                {h.pnl >= 0 ? '+' : ''}£{h.pnl.toFixed(2)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-            )}
-          </div>
+          {/* Holdings tables per rival */}
+          {rivals.map(r => {
+            const rHoldings = r.holdings.map(h => {
+              const stock = stocks.find(s => s.id === h.companyId);
+              const currentPrice = stock?.currentPrice ?? h.avgBuyPrice;
+              const value = (h.shares * currentPrice) / 100;
+              const costBasis = (h.shares * h.avgBuyPrice) / 100;
+              return { ...h, value, pnl: value - costBasis };
+            }).sort((a, b) => b.value - a.value);
+            const isOpen = !!rivalHoldingsOpen[r.uid];
+            return (
+              <div key={r.uid} className="bg-[#0A0F1E] border border-white/[0.06] rounded-xl overflow-hidden">
+                <button
+                  className="w-full flex items-center justify-between px-4 py-3 text-slate-200 font-semibold text-sm"
+                  onClick={() => setRivalHoldingsOpen(prev => ({ ...prev, [r.uid]: !prev[r.uid] }))}
+                >
+                  <span>{r.displayName}'s Holdings ({rHoldings.length})</span>
+                  {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+                {isOpen && (
+                  rHoldings.length === 0
+                    ? <p className="text-slate-600 text-sm text-center py-5 border-t border-white/[0.06]">No holdings yet.</p>
+                    : (
+                      <div className="overflow-x-auto border-t border-white/[0.06]">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                              {['Stock', 'Shares', 'Value', 'P&L'].map(h => (
+                                <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.04]">
+                            {rHoldings.map(h => (
+                              <tr key={h.companyId}>
+                                <td className="px-3 py-2.5">
+                                  <p className="text-white text-xs font-bold">{h.symbol}</p>
+                                  <p className="text-slate-600 text-[10px] truncate max-w-[100px]">{h.companyName}</p>
+                                </td>
+                                <td className="px-3 py-2.5 text-slate-400 font-mono text-xs">{h.shares.toLocaleString()}</td>
+                                <td className="px-3 py-2.5 text-white font-mono text-xs">£{h.value.toFixed(2)}</td>
+                                <td className="px-3 py-2.5">
+                                  <span className={clsx('font-mono text-xs font-semibold', h.pnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                                    {h.pnl >= 0 ? '+' : ''}£{h.pnl.toFixed(2)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                )}
+              </div>
+            );
+          })}
 
           {/* Your holdings */}
           <div className="bg-[#0A0F1E] border border-white/[0.06] rounded-xl overflow-hidden">
@@ -413,7 +452,7 @@ function CompareModal({
         </div>
 
         <div className="px-5 py-3 border-t border-white/[0.06] shrink-0">
-          <p className="text-slate-600 text-[10px]">Holdings shown are the last published state. Values update with live market prices. Use each other's picks for inspiration.</p>
+          <p className="text-slate-600 text-[10px]">Holdings shown are the last published state. Values update with live market prices.</p>
         </div>
       </>
     );
@@ -423,7 +462,7 @@ function CompareModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-[#0D1424] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[88vh]"
         onClick={e => e.stopPropagation()}>
-        {rival ? <CompareView /> : <LeaderboardView />}
+        {comparing ? <CompareView /> : <LeaderboardView />}
       </div>
     </div>
   );
