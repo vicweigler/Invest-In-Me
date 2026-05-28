@@ -543,7 +543,7 @@ export default function StockDetail({ stock }: { stock: StockData }) {
 
   return (
     <>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Back button */}
         <button onClick={() => navigate('/market')}
           className="flex items-center gap-2 text-slate-400 hover:text-slate-200 text-sm transition-colors">
@@ -551,13 +551,13 @@ export default function StockDetail({ stock }: { stock: StockData }) {
         </button>
 
         {/* Stock header */}
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white"
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white shrink-0"
               style={{ backgroundColor: `${sectorColor}20`, border: `1px solid ${sectorColor}30` }}>
               {stock.symbol.slice(0, 2)}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-white text-2xl font-bold">{stock.name}</h1>
                 <span className="text-slate-400 font-mono text-lg">{stock.symbol}</span>
@@ -565,7 +565,7 @@ export default function StockDetail({ stock }: { stock: StockData }) {
                   {stock.sector}
                 </span>
               </div>
-              <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-4 mt-2 flex-wrap">
                 <span className="text-white font-mono text-3xl font-bold">{formatPrice(stock.currentPrice)}</span>
                 <div className={clsx('flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-lg', perfBg(stock.dayPerf))}>
                   {stock.dayPerf >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
@@ -575,16 +575,16 @@ export default function StockDetail({ stock }: { stock: StockData }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 sm:shrink-0">
             <button
               onClick={() => setShowResearch(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#0F172A] border border-white/[0.08] hover:border-indigo-500/30 text-slate-300 hover:text-indigo-300 rounded-xl text-sm font-semibold transition-all"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0F172A] border border-white/[0.08] hover:border-indigo-500/30 text-slate-300 hover:text-indigo-300 rounded-xl text-sm font-semibold transition-all"
             >
               <BookOpen size={14} /> Research
             </button>
             <button
               onClick={() => setShowTrade(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-sm font-semibold transition-all"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-sm font-semibold transition-all"
             >
               <ShoppingCart size={14} /> Shadow Trade
             </button>

@@ -52,3 +52,46 @@ input[type='number'] {
 .recharts-tooltip-wrapper {
   outline: none;
 }
+
+/* ── LIGHT MODE ─────────────────────────────────────────────────────────── */
+html.light-mode body {
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
+html.light-mode ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* ── Backgrounds ── */
+html.light-mode .bg-\[\#0A0F1E\]  { background-color: #F1F5F9; }
+html.light-mode .bg-\[\#0D1424\]  { background-color: #FFFFFF; }
+html.light-mode .bg-\[\#0F172A\]  { background-color: #FFFFFF; }
+html.light-mode .bg-\[\#1E293B\]  { background-color: #F1F5F9; }
+
+/* Subtle overlays — invert white-alpha to dark-alpha */
+html.light-mode .bg-white\/\[0\.04\]       { background-color: rgba(0,0,0,0.04); }
+html.light-mode .bg-white\/\[0\.05\]       { background-color: rgba(0,0,0,0.04); }
+html.light-mode .bg-white\/\[0\.08\]       { background-color: rgba(0,0,0,0.06); }
+html.light-mode .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0,0,0,0.04); }
+html.light-mode .hover\:bg-white\/\[0\.05\]:hover { background-color: rgba(0,0,0,0.05); }
+html.light-mode .hover\:bg-white\/\[0\.08\]:hover { background-color: rgba(0,0,0,0.07); }
+
+/* ── Borders ── */
+html.light-mode .border-white\/\[0\.06\] { border-color: rgba(0,0,0,0.08); }
+html.light-mode .border-white\/\[0\.07\] { border-color: rgba(0,0,0,0.10); }
+html.light-mode .border-white\/\[0\.08\] { border-color: rgba(0,0,0,0.12); }
+html.light-mode .border-white\/\[0\.1\]  { border-color: rgba(0,0,0,0.15); }
+html.light-mode .border-white\/\[0\.10\] { border-color: rgba(0,0,0,0.15); }
+
+/* ── Text ── */
+html.light-mode .text-white     { color: #0F172A; }
+html.light-mode .text-slate-200 { color: #1E293B; }
+html.light-mode .text-slate-300 { color: #334155; }
+html.light-mode .text-slate-400 { color: #64748B; }
+html.light-mode .text-slate-500 { color: #94A3B8; }
+html.light-mode .text-slate-600 { color: #475569; }
+html.light-mode .text-slate-700 { color: #334155; }
+
+/* ── Hover text ── */
+html.light-mode .hover\:text-slate-200:hover { color: #1E293B; }
+html.light-mode .hover\:text-slate-300:hover { color: #0F172A; }

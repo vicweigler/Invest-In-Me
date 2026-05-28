@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import {
-  Settings, DollarSign, PiggyBank, Info, ChevronRight, Check
+  Settings, DollarSign, PiggyBank, Info, ChevronRight, Check,
+  Sun, Moon
 } from 'lucide-react';
 import clsx from 'clsx';
 import {
   useSettingsStore, TaxBracket, FeeType,
   CGT_RATES, TAX_BRACKET_LABELS, DEFAULT_CGT_ALLOWANCE
 } from '../store/settingsStore';
+
+const APP_VERSION = '1.2.0';
 
 type TabId = 'trading' | 'tax';
 
@@ -283,6 +286,7 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('trading');
+  const { lightMode, toggleLightMode } = useSettingsStore();
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-5">
@@ -294,6 +298,38 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-white text-xl font-bold">Settings</h1>
           <p className="text-slate-500 text-sm mt-0.5">Configure trading costs and tax preferences</p>
+        </div>
+      </div>
+
+      {/* Appearance */}
+      <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl p-5">
+        <h3 className="text-slate-200 font-semibold text-sm mb-4">Appearance</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-slate-200 text-sm font-medium">
+              {lightMode ? 'Light Mode' : 'Dark Mode'}
+            </p>
+            <p className="text-slate-500 text-xs mt-0.5">Switch between dark and light theme</p>
+          </div>
+          <button
+            onClick={toggleLightMode}
+            className={clsx(
+              'relative inline-flex items-center h-7 w-13 rounded-full transition-all shrink-0 focus:outline-none',
+              lightMode ? 'bg-indigo-500' : 'bg-slate-700'
+            )}
+            style={{ width: '52px' }}
+            title={lightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
+            <span className={clsx(
+              'inline-flex items-center justify-center w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform',
+              lightMode ? 'translate-x-7' : 'translate-x-1'
+            )}>
+              {lightMode
+                ? <Sun size={11} className="text-indigo-500" />
+                : <Moon size={11} className="text-slate-600" />
+              }
+            </span>
+          </button>
         </div>
       </div>
 
@@ -319,6 +355,11 @@ export default function SettingsPage() {
       {/* Content */}
       {activeTab === 'trading' && <TradingCostsTab />}
       {activeTab === 'tax' && <TaxCGTTab />}
+
+      {/* Version */}
+      <div className="pt-2 pb-4 text-center">
+        <p className="text-slate-700 text-xs">Invest-In-It v{APP_VERSION}</p>
+      </div>
     </div>
   );
 }

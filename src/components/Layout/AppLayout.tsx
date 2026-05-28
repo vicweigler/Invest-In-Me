@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useMarketStore, ftse100IndexLevel } from '../../store/marketStore';
 import { useAuthStore } from '../../store/authStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { formatPerf, perfColor } from '../../data/generator';
 import clsx from 'clsx';
 
@@ -48,14 +49,14 @@ function UserMenu() {
   const name = user.displayName ?? user.email ?? 'Account';
 
   return (
-    <div className="flex items-center gap-2 ml-3">
-      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.07] rounded-full pl-1 pr-3 py-1">
+    <div className="flex items-center gap-2 ml-3 min-w-0">
+      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.07] rounded-full pl-1 pr-2 sm:pr-3 py-1 min-w-0">
         {user.photoURL ? (
-          <img src={user.photoURL} alt={name} className="w-6 h-6 rounded-full object-cover" referrerPolicy="no-referrer" />
+          <img src={user.photoURL} alt={name} className="w-6 h-6 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
         ) : (
-          <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">{initial}</div>
+          <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold shrink-0">{initial}</div>
         )}
-        <span className="text-slate-300 text-xs font-medium max-w-[120px] truncate">{name}</span>
+        <span className="hidden sm:block text-slate-300 text-xs font-medium max-w-[120px] truncate">{name}</span>
       </div>
       <button
         onClick={signOut}
@@ -72,7 +73,13 @@ export default function AppLayout() {
   const location = useLocation();
   const { stocks, lastUpdated } = useMarketStore();
   const { signOut } = useAuthStore();
+  const { lightMode } = useSettingsStore();
   const indexLevel = ftse100IndexLevel(stocks);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('light-mode', lightMode);
+    return () => { document.documentElement.classList.remove('light-mode'); };
+  }, [lightMode]);
 
   const avgDayPerf = stocks.length
     ? stocks.reduce((s, st) => s + st.dayPerf, 0) / stocks.length

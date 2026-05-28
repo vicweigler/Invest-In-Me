@@ -16,11 +16,13 @@ interface SettingsState {
   tradingCosts: TradingCosts;
   taxBracket: TaxBracket;
   cgtAllowance: number; // Annual CGT exempt amount (£3,000 for 2024/25)
+  lightMode: boolean;
   /** Called by firestoreSync — loads remote data without triggering a write-back. */
-  _loadState: (data: Partial<Omit<SettingsState, '_loadState' | 'updateTradingCosts' | 'updateTaxBracket' | 'updateCgtAllowance' | 'reset'>>) => void;
+  _loadState: (data: Partial<Omit<SettingsState, '_loadState' | 'updateTradingCosts' | 'updateTaxBracket' | 'updateCgtAllowance' | 'toggleLightMode' | 'reset'>>) => void;
   updateTradingCosts: (costs: Partial<TradingCosts>) => void;
   updateTaxBracket: (bracket: TaxBracket) => void;
   updateCgtAllowance: (amount: number) => void;
+  toggleLightMode: () => void;
   reset: () => void;
 }
 
@@ -68,8 +70,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
   function persistSettings() {
     const uid = useAuthStore.getState().user?.uid;
     if (uid) {
-      const { tradingCosts, taxBracket, cgtAllowance } = get();
-      saveSettings(uid, { tradingCosts, taxBracket, cgtAllowance }).catch(console.error);
+      const { tradingCosts, taxBracket, cgtAllowance, lightMode } = get();
+      saveSettings(uid, { tradingCosts, taxBracket, cgtAllowance, lightMode }).catch(console.error);
     }
   }
 
@@ -82,6 +84,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     },
     taxBracket: 'basic' as TaxBracket,
     cgtAllowance: DEFAULT_CGT_ALLOWANCE,
+    lightMode: false,
 
     _loadState: (data) => set(data as any),
 
@@ -100,10 +103,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
       persistSettings();
     },
 
+    toggleLightMode: () => {
+      set(s => ({ lightMode: !s.lightMode }));
+      persistSettings();
+    },
+
     reset: () => set({
       tradingCosts: { buyFeeType: 'fixed', buyFeeAmount: 9.95, sellFeeType: 'fixed', sellFeeAmount: 9.95 },
       taxBracket: 'basic',
       cgtAllowance: DEFAULT_CGT_ALLOWANCE,
+      lightMode: false,
     }),
   };
 });
