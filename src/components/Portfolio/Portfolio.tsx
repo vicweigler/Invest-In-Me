@@ -306,37 +306,19 @@ function CompareModal({
                       );
                     })}
                   </div>
+                  <div className="mt-4 pt-3 border-t border-white/[0.06] grid grid-cols-2 gap-2 text-center">
+                    <div>
+                      <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Started With</p>
+                      <p className="font-mono font-bold text-xs text-slate-200">£{(pIsMe ? me : rival).initialBalance.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Holdings</p>
+                      <p className="font-mono font-bold text-xs text-slate-200">{pIsMe ? currentHoldings.length : rival.holdings.length}</p>
+                    </div>
+                  </div>
                 </div>
               );
             })}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white/[0.03] rounded-xl p-3 text-center">
-              <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Started With</p>
-              <div className="flex justify-around">
-                <div>
-                  <p className="font-mono font-bold text-sm text-slate-200">£{me.initialBalance.toLocaleString()}</p>
-                  <p className="text-slate-600 text-[10px]">{me.displayName.split(' ')[0]}</p>
-                </div>
-                <div>
-                  <p className="font-mono font-bold text-sm text-slate-200">£{rival.initialBalance.toLocaleString()}</p>
-                  <p className="text-slate-600 text-[10px]">{rival.displayName.split(' ')[0]}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white/[0.03] rounded-xl p-3 text-center">
-              <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Holdings</p>
-              <div className="flex justify-around">
-                <div>
-                  <p className="font-mono font-bold text-sm text-slate-200">{currentHoldings.length}</p>
-                  <p className="text-slate-600 text-[10px]">{me.displayName.split(' ')[0]}</p>
-                </div>
-                <div>
-                  <p className="font-mono font-bold text-sm text-slate-200">{rival.holdings.length}</p>
-                  <p className="text-slate-600 text-[10px]">{rival.displayName.split(' ')[0]}</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Rival's holdings */}
