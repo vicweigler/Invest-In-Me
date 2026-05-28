@@ -43,6 +43,10 @@
         "function": "quotes"
       },
       {
+        "source": "/api/fundamentals",
+        "function": "fundamentals"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

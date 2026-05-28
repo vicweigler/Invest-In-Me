@@ -4,16 +4,18 @@ const functions = require('firebase-functions');
 const YahooFinance = require('yahoo-finance2').default;
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
+function setCors(res) {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 /**
  * GET /quotes?symbols=LLOY.L,AZN.L,...
  * Returns Yahoo Finance quote data in the same shape as the Vite dev proxy.
  */
 exports.quotes = functions.https.onRequest(async (req, res) => {
-  // Allow browser requests from any origin (public read-only stock data)
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-
+  setCors(res);
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
@@ -46,3 +48,47 @@ exports.quotes = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+/**
+ * GET /fundamentals?symbols=AZN.L,LLOY.L,...
+ * Returns Yahoo Finance quoteSummary (financialData + defaultKeyStatistics)
+ * for real fundamental data used by the Stock Scan scoring engine.
+ */
+exports.fundamentals = functions
+  .runWith({ timeoutSeconds: 120, memory: '256MB' })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+    const symbolsParam = (req.query.symbols ?? '').toString();
+    const symbols = symbolsParam.split(',').filter(Boolean);
+
+    if (symbols.length === 0) {
+      res.status(400).json({ error: 'No symbols provided' });
+      return;
+    }
+
+    // Fetch quoteSummary in parallel batches of 5 to avoid rate limits
+    const BATCH = 5;
+    const results = [];
+
+    for (let i = 0; i < symbols.length; i += BATCH) {
+      const chunk = symbols.slice(i, i + BATCH);
+      const settled = await Promise.allSettled(
+        chunk.map(sym =>
+          yf.quoteSummary(sym, { modules: ['financialData', 'defaultKeyStatistics'] })
+            .then(data => ({ symbol: sym, ...data }))
+        )
+      );
+      for (let j = 0; j < chunk.length; j++) {
+        const r = settled[j];
+        results.push(
+          r.status === 'fulfilled'
+            ? r.value
+            : { symbol: chunk[j], error: true, reason: String(r.reason) }
+        );
+      }
+    }
+
+    res.json({ results });
+  });

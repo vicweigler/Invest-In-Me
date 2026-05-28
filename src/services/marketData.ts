@@ -17,6 +17,23 @@ export interface RealQuote {
   dividendYield?: number | null;
 }
 
+/**
+ * Real fundamental data from Yahoo Finance quoteSummary.
+ * Decimal fields (margins, growth, ROA, ROE) are raw Yahoo values (0.15 = 15%).
+ * debtToEquity is Yahoo's percentage format (50 = 50% = 0.5 standard D/E).
+ */
+export interface FundamentalData {
+  symbol: string;
+  eps: number | null;              // £ trailing EPS
+  revenueGrowth: number | null;   // decimal e.g. 0.10 = 10%
+  debtToEquity: number | null;    // Yahoo % format e.g. 50 = D/E 0.5
+  operatingMargins: number | null; // decimal e.g. 0.20 = 20%
+  profitMargins: number | null;    // decimal e.g. 0.15 = 15%
+  returnOnAssets: number | null;   // decimal e.g. 0.05 = 5%
+  returnOnEquity: number | null;   // decimal e.g. 0.15 = 15%
+  grossMargins: number | null;     // decimal e.g. 0.40 = 40%
+}
+
 // Symbols that need a custom Yahoo Finance suffix (not .L)
 const SYMBOL_OVERRIDES: Record<string, string> = {
   // No overrides needed for standard LSE listings
@@ -95,4 +112,56 @@ export async function fetchRealQuotes(symbols: string[]): Promise<Map<string, Re
   }
 
   return map;
+}
+
+/**
+ * Fetch real fundamental data (D/E, margins, ROA, revenue growth, EPS)
+ * for a list of Yahoo Finance symbols (e.g. "AZN.L").
+ * Returns a map keyed by the bare symbol (without .L).
+ */
+export async function fetchFundamentals(yahooSymbols: string[]): Promise<Record<string, FundamentalData>> {
+  if (yahooSymbols.length === 0) return {};
+
+  const query = yahooSymbols.join(',');
+  const url = `/api/fundamentals?symbols=${encodeURIComponent(query)}`;
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(40_000) });
+    if (!res.ok) return {};
+    const data: { results?: unknown[] } = await res.json();
+    const results: unknown[] = data?.results ?? [];
+
+    const map: Record<string, FundamentalData> = {};
+
+    for (const r of results) {
+      if (!r || typeof r !== 'object') continue;
+      const entry = r as Record<string, unknown>;
+      if (entry.error) continue;
+
+      const sym = String(entry.symbol ?? '').replace(/\.L$/i, '');
+      if (!sym) continue;
+
+      const fin = (entry.financialData ?? {}) as Record<string, unknown>;
+      const stats = (entry.defaultKeyStatistics ?? {}) as Record<string, unknown>;
+
+      const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null);
+
+      map[sym] = {
+        symbol: sym,
+        eps: num(stats.trailingEps),
+        revenueGrowth: num(fin.revenueGrowth),
+        debtToEquity: num(fin.debtToEquity),
+        operatingMargins: num(fin.operatingMargins),
+        profitMargins: num(fin.profitMargins),
+        returnOnAssets: num(fin.returnOnAssets),
+        returnOnEquity: num(fin.returnOnEquity),
+        grossMargins: num(fin.grossMargins),
+      };
+    }
+
+    return map;
+  } catch (err) {
+    console.warn('[marketData] fetchFundamentals failed:', err);
+    return {};
+  }
 }

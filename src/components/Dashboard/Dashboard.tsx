@@ -5,6 +5,7 @@ import { useMarketStore, selectTopGainers, selectTopDecliners, ftse100IndexLevel
 import { formatPrice, formatPerf, formatMarketCap, perfColor, perfBg } from '../../data/generator';
 import { SECTOR_COLORS } from '../../data/companies';
 import { StockData } from '../../types';
+import { FundamentalData } from '../../services/marketData';
 import clsx from 'clsx';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -184,12 +185,58 @@ const SCAN_WEIGHTS: Record<keyof CriteriaScores, number> = {
 const SCAN_TOTAL_WEIGHT = Object.values(SCAN_WEIGHTS).reduce((a, b) => a + b, 0);
 const SCAN_THRESHOLD = 5.5;
 
-function scoreStock(stock: StockData): { scores: CriteriaScores; composite: number } {
+/** Compute moat score (0-10) from real gross margins, ROE, and market position */
+function computeMoat(stock: StockData, real: FundamentalData | null): number {
+  let pts = 0;
+  // Market position (FTSE rank)
+  if (stock.ftseRank <= 10) pts += 3;
+  else if (stock.ftseRank <= 25) pts += 2.5;
+  else if (stock.ftseRank <= 50) pts += 2;
+  else pts += 1;
+
+  // Gross margins (pricing power) — prefer real
+  const gm = real?.grossMargins != null ? real.grossMargins * 100 : null;
+  if (gm !== null) {
+    if (gm > 60) pts += 3; else if (gm > 40) pts += 2.5;
+    else if (gm > 20) pts += 1.5; else pts += 0.5;
+  } else {
+    // Fallback: use PE premium as proxy for pricing power
+    if (stock.peRatio && stock.peRatio > 22) pts += 2;
+    else if (stock.peRatio && stock.peRatio > 15) pts += 1;
+  }
+
+  // ROE (capital efficiency) — prefer real
+  const roe = real?.returnOnEquity != null ? real.returnOnEquity * 100 : null;
+  if (roe !== null) {
+    if (roe > 25) pts += 2; else if (roe > 15) pts += 1.5; else if (roe > 8) pts += 1;
+  }
+
+  // Company age (durability)
+  const age = new Date().getFullYear() - stock.founded;
+  if (age >= 100) pts += 1.5; else if (age >= 50) pts += 1; else pts += 0.5;
+
+  return Math.min(10, Math.max(0, (pts / 9.5) * 10));
+}
+
+function scoreStock(stock: StockData, real: FundamentalData | null): { scores: CriteriaScores; composite: number } {
   const isFin = stock.sector === 'Financials';
 
-  // 1. EPS — earnings yield signal
-  const epsScore = stock.eps == null ? 3
-    : stock.eps <= 0 ? 0
+  // Resolve effective values — real data overrides generated where available.
+  // Yahoo Finance returns margin/growth/ROA fields as decimals (0.10 = 10%).
+  // debtToEquity is in Yahoo's percentage format (50 = 0.5 standard D/E).
+  const effEps     = real?.eps ?? stock.eps;
+  const effRevGrow = real?.revenueGrowth  != null ? real.revenueGrowth  * 100 : stock.revenueGrowth;
+  const effDE      = real?.debtToEquity   != null
+    ? (real.debtToEquity > 10 ? real.debtToEquity / 100 : real.debtToEquity)
+    : stock.debtToEquity;
+  const effOCF     = real?.operatingMargins != null ? real.operatingMargins * 100 : stock.operatingCashFlowMargin;
+  const effMargin  = real?.profitMargins    != null ? real.profitMargins    * 100 : stock.netProfitMargin;
+  const effROA     = real?.returnOnAssets   != null ? real.returnOnAssets   * 100 : stock.returnOnAssets;
+  const effMoat    = computeMoat(stock, real);
+
+  // 1. EPS — earnings yield (driven by real peRatio from Yahoo quotes)
+  const epsScore = effEps == null ? 3
+    : effEps <= 0 ? 0
     : stock.peRatio == null ? 5
     : (() => { const y = (1 / stock.peRatio) * 100; return y >= 10 ? 10 : y >= 7 ? 9 : y >= 5 ? 7 : y >= 3 ? 6 : 5; })();
 
@@ -198,41 +245,37 @@ function scoreStock(stock: StockData): { scores: CriteriaScores; composite: numb
     : stock.peRatio < 5 ? 3 : stock.peRatio < 12 ? 8 : stock.peRatio < 20 ? 9
     : stock.peRatio < 30 ? 7 : stock.peRatio < 40 ? 5 : 3;
 
-  // 3. Revenue growth
-  const rgScore = stock.revenueGrowth < -5 ? 1 : stock.revenueGrowth < 0 ? 3
-    : stock.revenueGrowth < 3 ? 5 : stock.revenueGrowth < 7 ? 7
-    : stock.revenueGrowth < 12 ? 9 : 10;
+  // 3. Revenue growth (real % YoY)
+  const rgScore = effRevGrow < -5 ? 1 : effRevGrow < 0 ? 3
+    : effRevGrow < 3 ? 5 : effRevGrow < 7 ? 7 : effRevGrow < 12 ? 9 : 10;
 
   // 4. D/E ratio (sector-adjusted for Financials)
   const deScore = isFin
-    ? (stock.debtToEquity < 5 ? 10 : stock.debtToEquity < 8 ? 8 : stock.debtToEquity < 12 ? 6 : 4)
-    : stock.debtToEquity < 0.2 ? 10 : stock.debtToEquity < 0.5 ? 9 : stock.debtToEquity < 1.0 ? 7
-    : stock.debtToEquity < 1.5 ? 5 : stock.debtToEquity < 2.5 ? 3 : 1;
+    ? (effDE < 5 ? 10 : effDE < 8 ? 8 : effDE < 12 ? 6 : 4)
+    : effDE < 0.2 ? 10 : effDE < 0.5 ? 9 : effDE < 1.0 ? 7
+    : effDE < 1.5 ? 5 : effDE < 2.5 ? 3 : 1;
 
-  // 5. Operating cash flow margin
-  const ocfScore = stock.operatingCashFlowMargin < 0 ? 0
-    : stock.operatingCashFlowMargin < 8 ? 3 : stock.operatingCashFlowMargin < 15 ? 6
-    : stock.operatingCashFlowMargin < 25 ? 8 : stock.operatingCashFlowMargin < 35 ? 9 : 10;
+  // 5. Operating cash flow / operating margin
+  const ocfScore = effOCF < 0 ? 0 : effOCF < 8 ? 3 : effOCF < 15 ? 6
+    : effOCF < 25 ? 8 : effOCF < 35 ? 9 : 10;
 
   // 6. Net profit margin
-  const marginScore = stock.netProfitMargin < 0 ? 0 : stock.netProfitMargin < 4 ? 3
-    : stock.netProfitMargin < 8 ? 6 : stock.netProfitMargin < 15 ? 8
-    : stock.netProfitMargin < 22 ? 9 : 10;
+  const marginScore = effMargin < 0 ? 0 : effMargin < 4 ? 3 : effMargin < 8 ? 6
+    : effMargin < 15 ? 8 : effMargin < 22 ? 9 : 10;
 
-  // 7. Return on assets (banks use a much tighter scale)
+  // 7. Return on assets (banks use tighter scale)
   const roaScore = isFin
-    ? (stock.returnOnAssets < 0.5 ? 3 : stock.returnOnAssets < 1.0 ? 6 : stock.returnOnAssets < 1.5 ? 8 : 10)
-    : stock.returnOnAssets < 2 ? 2 : stock.returnOnAssets < 5 ? 5
-    : stock.returnOnAssets < 10 ? 7 : stock.returnOnAssets < 15 ? 9 : 10;
+    ? (effROA < 0.5 ? 3 : effROA < 1.0 ? 6 : effROA < 1.5 ? 8 : 10)
+    : effROA < 2 ? 2 : effROA < 5 ? 5 : effROA < 10 ? 7 : effROA < 15 ? 9 : 10;
 
-  // 8. Competitive moat (0-10 score from generator)
-  const moatScore = stock.moatScore;
+  // 8. Competitive moat
+  const moatScore = effMoat;
 
-  // 9. Dividend (very high yield may be unsustainable)
+  // 9. Dividend (very high yield can signal distress)
   const dY = stock.dividendYield ?? 0;
   const divScore = dY <= 0 ? 4 : dY < 1.5 ? 5 : dY < 3 ? 7 : dY < 5.5 ? 9 : dY < 8 ? 7 : 4;
 
-  // 10. Valuation / market sentiment (price position in 52w range + recent momentum)
+  // 10. Valuation / market sentiment (real price position in 52w range + momentum)
   const priceRange = stock.high52w - stock.low52w;
   const posInRange = priceRange > 0 ? (stock.currentPrice - stock.low52w) / priceRange : 0.5;
   const valScore = Math.min(10, Math.max(0,
@@ -254,8 +297,10 @@ function scoreStock(stock: StockData): { scores: CriteriaScores; composite: numb
 }
 
 // ── STOCK SCAN MODAL ─────────────────────────────────────────────────────
-function StockScanModal({ stocks, onClose, onSelect }: {
+function StockScanModal({ stocks, fundamentals, fundamentalsStatus, onClose, onSelect }: {
   stocks: StockData[];
+  fundamentals: Record<string, FundamentalData>;
+  fundamentalsStatus: 'idle' | 'loading' | 'loaded' | 'error';
   onClose: () => void;
   onSelect: (symbol: string) => void;
 }) {
@@ -264,22 +309,25 @@ function StockScanModal({ stocks, onClose, onSelect }: {
       .filter(s => s.threeMonthPerf > 0)
       .sort((a, b) => b.threeMonthPerf - a.threeMonthPerf);
 
-    const picks: Array<{ stock: StockData; composite: number }> = [];
+    const picks: Array<{ stock: StockData; composite: number; hasReal: boolean }> = [];
     let analysed = 0;
     let filtered = 0;
 
     for (const stock of candidates) {
       if (picks.length >= 5) break;
       analysed++;
-      const { composite } = scoreStock(stock);
+      const real = fundamentals[stock.symbol] ?? null;
+      const { composite } = scoreStock(stock, real);
       if (composite >= SCAN_THRESHOLD) {
-        picks.push({ stock, composite });
+        picks.push({ stock, composite, hasReal: !!real });
       } else {
         filtered++;
       }
     }
     return { picks, analysed, filtered };
-  }, [stocks]);
+  }, [stocks, fundamentals]);
+
+  const isRealData = fundamentalsStatus === 'loaded';
 
   return (
     <div
@@ -298,8 +346,13 @@ function StockScanModal({ stocks, onClose, onSelect }: {
             </div>
             <div>
               <h2 className="text-white font-bold text-sm">Stock Scan</h2>
-              <p className="text-slate-500 text-xs">
-                {analysed} analysed · {filtered} filtered · 10-factor score
+              <p className="text-slate-500 text-xs flex items-center gap-1.5">
+                <span className={clsx('w-1.5 h-1.5 rounded-full shrink-0', isRealData ? 'bg-emerald-400' : fundamentalsStatus === 'loading' ? 'bg-amber-400 animate-pulse' : 'bg-slate-500')} />
+                {fundamentalsStatus === 'loading'
+                  ? 'Fetching live fundamentals…'
+                  : isRealData
+                    ? `Live data · ${analysed} analysed · ${filtered} filtered`
+                    : `Simulated data · ${analysed} analysed · ${filtered} filtered`}
               </p>
             </div>
           </div>
@@ -314,16 +367,24 @@ function StockScanModal({ stocks, onClose, onSelect }: {
         {/* Picks */}
         <div className="overflow-y-auto p-3 space-y-1">
           {picks.map(({ stock, composite }, i) => {
+            const real = fundamentals[stock.symbol] ?? null;
             const scoreColor = composite >= 7.5 ? 'text-emerald-400'
               : composite >= 6.5 ? 'text-sky-400' : 'text-amber-400';
             const scoreBg = composite >= 7.5 ? 'bg-emerald-500/10 border-emerald-500/20'
               : composite >= 6.5 ? 'bg-sky-500/10 border-sky-500/20'
               : 'bg-amber-500/10 border-amber-500/20';
 
-            const epsStr = stock.eps != null ? `EPS £${stock.eps.toFixed(2)}` : 'EPS N/A';
-            const peStr = stock.peRatio != null ? `P/E ${stock.peRatio.toFixed(1)}` : 'P/E N/A';
-            const deStr = `D/E ${stock.debtToEquity.toFixed(2)}`;
-            const mgnStr = `Mgn ${stock.netProfitMargin.toFixed(1)}%`;
+            // Display values: prefer real, fall back to generated
+            const dispEps = real?.eps != null
+              ? `EPS £${real.eps.toFixed(2)}`
+              : stock.eps != null ? `EPS £${stock.eps.toFixed(2)}` : 'EPS N/A';
+            const dispPE = stock.peRatio != null ? `P/E ${stock.peRatio.toFixed(1)}` : 'P/E N/A';
+            const dispDE = real?.debtToEquity != null
+              ? `D/E ${(real.debtToEquity > 10 ? real.debtToEquity / 100 : real.debtToEquity).toFixed(2)}`
+              : `D/E ${stock.debtToEquity.toFixed(2)}`;
+            const dispMgn = real?.profitMargins != null
+              ? `Mgn ${(real.profitMargins * 100).toFixed(1)}%`
+              : `Mgn ${stock.netProfitMargin.toFixed(1)}%`;
 
             return (
               <button
@@ -336,7 +397,6 @@ function StockScanModal({ stocks, onClose, onSelect }: {
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    {/* Row 1: symbol + sector tag / 3M perf */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-white font-bold text-sm">{stock.symbol}</span>
@@ -346,7 +406,6 @@ function StockScanModal({ stocks, onClose, onSelect }: {
                         +{stock.threeMonthPerf.toFixed(2)}%
                       </span>
                     </div>
-                    {/* Row 2: company name / score badge + price */}
                     <div className="flex items-center justify-between mt-0.5 gap-2">
                       <p className="text-slate-400 text-xs truncate">{stock.name}</p>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -356,9 +415,8 @@ function StockScanModal({ stocks, onClose, onSelect }: {
                         <span className="text-slate-500 text-xs font-mono">{formatPrice(stock.currentPrice)}</span>
                       </div>
                     </div>
-                    {/* Row 3: key metric pills */}
                     <p className="text-slate-600 text-[10px] mt-1 truncate">
-                      {epsStr} · {peStr} · {deStr} · {mgnStr}
+                      {dispEps} · {dispPE} · {dispDE} · {dispMgn}
                     </p>
                   </div>
                   <ArrowUpRight size={14} className="text-slate-600 group-hover:text-indigo-400 shrink-0 transition-colors mt-1" />
@@ -386,7 +444,7 @@ function StockScanModal({ stocks, onClose, onSelect }: {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [showScan, setShowScan] = useState(false);
-  const { stocks, isLoaded, loadMarket, tickPrices } = useMarketStore();
+  const { stocks, isLoaded, loadMarket, tickPrices, fundamentals, fundamentalsStatus } = useMarketStore();
 
   useEffect(() => {
     if (!isLoaded) loadMarket();
@@ -436,6 +494,8 @@ export default function Dashboard() {
       {showScan && (
         <StockScanModal
           stocks={stocks}
+          fundamentals={fundamentals}
+          fundamentalsStatus={fundamentalsStatus}
           onClose={() => setShowScan(false)}
           onSelect={symbol => navigate(`/stock/${symbol}`)}
         />

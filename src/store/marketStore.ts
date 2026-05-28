@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import { StockData } from '../types';
 import { FTSE100_COMPANIES } from '../data/companies';
 import { buildStockData } from '../data/generator';
-import { fetchRealQuotes } from '../services/marketData';
+import { fetchRealQuotes, fetchFundamentals, FundamentalData } from '../services/marketData';
 
 interface MarketState {
   stocks: StockData[];
+  fundamentals: Record<string, FundamentalData>;
+  fundamentalsStatus: 'idle' | 'loading' | 'loaded' | 'error';
   lastUpdated: Date;
   isLoaded: boolean;
   isLive: boolean;
@@ -15,6 +17,8 @@ interface MarketState {
 
 export const useMarketStore = create<MarketState>((set, get) => ({
   stocks: [],
+  fundamentals: {},
+  fundamentalsStatus: 'idle',
   lastUpdated: new Date(),
   isLoaded: false,
   isLive: false,
@@ -44,6 +48,19 @@ export const useMarketStore = create<MarketState>((set, get) => ({
 
       const updatedStocks = updatedCompanies.map(c => buildStockData(c));
       set({ stocks: updatedStocks, isLive: true, lastUpdated: new Date() });
+
+      // After prices are in, fetch real fundamentals for the top 30 candidates
+      // so the Stock Scan modal has real data ready when the user opens it.
+      set({ fundamentalsStatus: 'loading' });
+      const topSymbols = [...updatedStocks]
+        .sort((a, b) => b.threeMonthPerf - a.threeMonthPerf)
+        .slice(0, 30)
+        .map(s => `${s.symbol}.L`);
+
+      fetchFundamentals(topSymbols)
+        .then(fundamentals => set({ fundamentals, fundamentalsStatus: 'loaded' }))
+        .catch(() => set({ fundamentalsStatus: 'error' }));
+
     }).catch(err => {
       console.warn('[marketStore] Real price fetch failed, using static data.', err);
     });
