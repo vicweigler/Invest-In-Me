@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Holding, Transaction, PortfolioSnapshot } from '../types';
 import { useSettingsStore, calcTradeFee, calcCGT, TaxBracket } from './settingsStore';
 import { useAuthStore } from './authStore';
-import { savePortfolio } from '../lib/firestoreSync';
+import { savePortfolio, savePublicProfile } from '../lib/firestoreSync';
 
 interface PortfolioState {
   cashBalance: number;
@@ -48,6 +48,26 @@ function persist(state: PortfolioState) {
   if (uid) savePortfolio(uid, portfolioData(state)).catch(console.error);
 }
 
+/** Write a sanitised public profile so other users can see this person on the leaderboard. */
+function persistPublic(state: PortfolioState) {
+  const user = useAuthStore.getState().user;
+  if (!user || !state.isInitialised) return;
+  savePublicProfile(user.uid, {
+    displayName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+    initialBalance: state.initialBalance,
+    cashBalance: state.cashBalance,
+    holdings: state.holdings.map(h => ({
+      companyId: h.companyId,
+      symbol: h.symbol,
+      companyName: h.companyName,
+      sector: h.sector,
+      shares: h.shares,
+      avgBuyPrice: h.avgBuyPrice,
+    })),
+    updatedAt: new Date().toISOString(),
+  }).catch(console.error);
+}
+
 export const usePortfolioStore = create<PortfolioState>()(
     (set, get) => ({
       cashBalance: 0,
@@ -62,6 +82,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       setInitialBalance: (amount: number) => {
         set({ cashBalance: amount, initialBalance: amount, isInitialised: true });
         persist(get());
+        persistPublic(get());
       },
 
       buyShares: ({ companyId, symbol, companyName, sector, shares, pricePerShare }) => {
@@ -119,6 +140,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         });
 
         persist(get());
+        persistPublic(get());
         return { success: true, message: `Bought ${shares} shares of ${symbol} at ${(pricePerShare / 100).toFixed(2)}p` };
       },
 
@@ -172,6 +194,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         });
 
         persist(get());
+        persistPublic(get());
         return { success: true, message: `Sold ${shares} shares of ${symbol}` };
       },
 

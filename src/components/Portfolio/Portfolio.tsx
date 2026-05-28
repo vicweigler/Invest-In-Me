@@ -1,17 +1,418 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   AreaChart, Area, PieChart, Pie, Cell, Tooltip, XAxis, YAxis,
   ResponsiveContainer, CartesianGrid, BarChart, Bar,
 } from 'recharts';
-import { Briefcase, TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, ChevronUp, Receipt, Landmark, CalendarRange, Settings, AlertTriangle } from 'lucide-react';
+import { Briefcase, TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, ChevronUp, Receipt, Landmark, CalendarRange, Settings, AlertTriangle, Users, Trophy, ArrowLeft, X, Medal } from 'lucide-react';
 import { usePortfolioStore, computePortfolioStats, EnrichedHolding } from '../../store/portfolioStore';
 import { useSettingsStore, CGT_RATES, TAX_BRACKET_LABELS, calcTradeFee } from '../../store/settingsStore';
+import { useAuthStore } from '../../store/authStore';
 import { Holding } from '../../types';
 import { useMarketStore, selectBySymbol } from '../../store/marketStore';
 import { formatPrice, formatPerf, perfColor, perfBg } from '../../data/generator';
 import { SECTOR_COLORS } from '../../data/companies';
+import { fetchLeaderboard, PublicProfile } from '../../lib/firestoreSync';
 import clsx from 'clsx';
+
+// ── COMPARE MODAL ─────────────────────────────────────────────────────────
+interface RankedProfile extends PublicProfile {
+  liveValue: number;
+  pnl: number;
+  pnlPct: number;
+  rank: number;
+}
+
+function medalColor(rank: number) {
+  if (rank === 1) return 'text-yellow-400';
+  if (rank === 2) return 'text-slate-300';
+  if (rank === 3) return 'text-amber-600';
+  return 'text-slate-600';
+}
+
+function CompareModal({
+  currentUid, currentDisplayName, currentValue, currentInitial, currentCash, currentHoldings, stocks, onClose,
+}: {
+  currentUid: string;
+  currentDisplayName: string;
+  currentValue: number;
+  currentInitial: number;
+  currentCash: number;
+  currentHoldings: EnrichedHolding[];
+  stocks: ReturnType<typeof useMarketStore.getState>['stocks'];
+  onClose: () => void;
+}) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [profiles, setProfiles] = useState<PublicProfile[]>([]);
+  const [rival, setRival] = useState<RankedProfile | null>(null);
+  const [rivalHoldingsOpen, setRivalHoldingsOpen] = useState(true);
+  const [myHoldingsOpen, setMyHoldingsOpen] = useState(false);
+
+  useEffect(() => {
+    fetchLeaderboard()
+      .then(data => { setProfiles(data); setStatus('loaded'); })
+      .catch(() => setStatus('error'));
+  }, []);
+
+  /** Compute live total portfolio value for a public profile using current market prices. */
+  function liveValue(profile: PublicProfile): number {
+    const hv = profile.holdings.reduce((sum, h) => {
+      const stock = stocks.find(s => s.id === h.companyId);
+      return sum + (stock ? (h.shares * stock.currentPrice) / 100 : 0);
+    }, 0);
+    return profile.cashBalance + hv;
+  }
+
+  const ranked: RankedProfile[] = useMemo(() => {
+    // Include all fetched profiles + inject current user if not in list
+    const map = new Map<string, PublicProfile>(profiles.map(p => [p.uid, p]));
+    if (!map.has(currentUid)) {
+      map.set(currentUid, {
+        uid: currentUid,
+        displayName: currentDisplayName,
+        initialBalance: currentInitial,
+        cashBalance: currentCash,
+        holdings: currentHoldings.map(h => ({
+          companyId: h.companyId,
+          symbol: h.symbol,
+          companyName: h.companyName,
+          sector: h.sector,
+          shares: h.shares,
+          avgBuyPrice: h.avgBuyPrice,
+        })),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    const list = Array.from(map.values())
+      .map(p => {
+        const v = p.uid === currentUid ? currentValue : liveValue(p);
+        const pnl = v - p.initialBalance;
+        const pnlPct = p.initialBalance > 0 ? (pnl / p.initialBalance) * 100 : 0;
+        return { ...p, liveValue: v, pnl, pnlPct, rank: 0 };
+      })
+      .sort((a, b) => b.pnlPct - a.pnlPct);
+    list.forEach((p, i) => { p.rank = i + 1; });
+    return list;
+  }, [profiles, stocks, currentValue]);
+
+  const me = ranked.find(p => p.uid === currentUid);
+
+  // ── Leaderboard view ────────────────────────────────────────────────────
+  const LeaderboardView = () => (
+    <>
+      <div className="flex items-center justify-between p-5 border-b border-white/[0.06] shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
+            <Trophy size={16} className="text-violet-400" />
+          </div>
+          <div>
+            <h2 className="text-white font-bold text-sm">Leaderboard</h2>
+            <p className="text-slate-500 text-xs">
+              {status === 'loaded' ? `${ranked.length} player${ranked.length !== 1 ? 's' : ''} · ranked by return %` : 'Loading…'}
+            </p>
+          </div>
+        </div>
+        <button onClick={onClose} className="text-slate-500 hover:text-slate-300 p-1.5 rounded-lg hover:bg-white/[0.04] transition-all">
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="overflow-y-auto p-3 space-y-1">
+        {status === 'loading' && (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+        {status === 'error' && (
+          <p className="text-red-400 text-sm text-center py-8">Failed to load leaderboard. Please try again.</p>
+        )}
+        {status === 'loaded' && ranked.map(p => {
+          const isMe = p.uid === currentUid;
+          const avatarColor = ['#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6'][
+            p.displayName.charCodeAt(0) % 6
+          ];
+          return (
+            <button
+              key={p.uid}
+              disabled={isMe}
+              onClick={() => { if (!isMe) setRival(p); }}
+              className={clsx(
+                'w-full p-3 rounded-xl transition-all text-left flex items-center gap-3',
+                isMe ? 'bg-white/[0.04] border border-white/[0.08] cursor-default' : 'hover:bg-white/[0.04] cursor-pointer group',
+              )}
+            >
+              {/* Rank */}
+              <span className={clsx('w-6 text-center text-sm font-bold shrink-0', medalColor(p.rank))}>
+                {p.rank <= 3 ? <Medal size={16} className={clsx('mx-auto', medalColor(p.rank))} /> : p.rank}
+              </span>
+              {/* Avatar */}
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                style={{ backgroundColor: `${avatarColor}30`, border: `1px solid ${avatarColor}50` }}>
+                {p.displayName.charAt(0).toUpperCase()}
+              </div>
+              {/* Name + stats */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white text-sm font-semibold truncate">{p.displayName}</span>
+                  {isMe && <span className="text-[10px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-semibold shrink-0">You</span>}
+                </div>
+                <p className="text-slate-500 text-xs font-mono">
+                  £{p.liveValue.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              {/* P&L */}
+              <div className="text-right shrink-0">
+                <p className={clsx('font-mono text-sm font-bold', p.pnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                  {p.pnl >= 0 ? '+' : ''}{p.pnlPct.toFixed(2)}%
+                </p>
+                <p className={clsx('font-mono text-xs', p.pnl >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                  {p.pnl >= 0 ? '+' : ''}£{Math.abs(p.pnl).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              {!isMe && <ArrowUpRight size={14} className="text-slate-600 group-hover:text-violet-400 shrink-0 transition-colors" />}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="px-5 py-3 border-t border-white/[0.06] shrink-0">
+        <p className="text-slate-600 text-[10px]">Click any player to see a side-by-side comparison. Your portfolio is published automatically when you trade.</p>
+      </div>
+    </>
+  );
+
+  // ── Compare view ────────────────────────────────────────────────────────
+  const CompareView = () => {
+    if (!rival || !me) return null;
+
+    const rivalHoldings = rival.holdings.map(h => {
+      const stock = stocks.find(s => s.id === h.companyId);
+      const currentPrice = stock?.currentPrice ?? h.avgBuyPrice;
+      const value = (h.shares * currentPrice) / 100;
+      const costBasis = (h.shares * h.avgBuyPrice) / 100;
+      const pnl = value - costBasis;
+      return { ...h, currentPrice, value, costBasis, pnl };
+    }).sort((a, b) => b.value - a.value);
+
+    const StatCol = ({ label, mine, theirs, higherIsBetter = true }: {
+      label: string; mine: number; theirs: number; higherIsBetter?: boolean;
+      format?: (v: number) => string;
+    }) => {
+      const iWin = higherIsBetter ? mine > theirs : mine < theirs;
+      const theyWin = higherIsBetter ? theirs > mine : theirs < mine;
+      return (
+        <div className="bg-white/[0.03] rounded-xl p-3 text-center">
+          <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-2">{label}</p>
+          <div className="flex items-end justify-around gap-1">
+            <div>
+              <p className={clsx('font-mono font-bold text-base', iWin ? 'text-emerald-400' : 'text-slate-300')}>
+                {mine >= 0 ? '' : '-'}£{Math.abs(mine).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-slate-600 text-[10px] mt-0.5">{me!.displayName.split(' ')[0]}</p>
+            </div>
+            <span className="text-slate-600 text-xs font-bold mb-1">vs</span>
+            <div>
+              <p className={clsx('font-mono font-bold text-base', theyWin ? 'text-emerald-400' : 'text-slate-300')}>
+                {theirs >= 0 ? '' : '-'}£{Math.abs(theirs).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-slate-600 text-[10px] mt-0.5">{rival.displayName.split(' ')[0]}</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const winner = me.pnlPct >= rival.pnlPct ? me : rival;
+    const iAmWinning = me.pnlPct >= rival.pnlPct;
+
+    return (
+      <>
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06] shrink-0">
+          <div className="flex items-center gap-2.5">
+            <button onClick={() => setRival(null)}
+              className="text-slate-500 hover:text-slate-300 p-1 rounded-lg hover:bg-white/[0.04] transition-all">
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <h2 className="text-white font-bold text-sm">{me.displayName} vs {rival.displayName}</h2>
+              <p className={clsx('text-xs font-semibold', iAmWinning ? 'text-emerald-400' : 'text-amber-400')}>
+                {iAmWinning ? '🏆 You are winning' : `🏆 ${rival.displayName} is winning`}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 p-1.5 rounded-lg hover:bg-white/[0.04] transition-all">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-4 space-y-4">
+          {/* P&L% banner */}
+          <div className="grid grid-cols-2 gap-3">
+            {[me, rival].map((p, i) => {
+              const isWinner = p.uid === winner.uid;
+              return (
+                <div key={i} className={clsx(
+                  'rounded-xl p-4 text-center border',
+                  isWinner ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.03] border-white/[0.06]'
+                )}>
+                  <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">
+                    {p.uid === currentUid ? 'You' : p.displayName}
+                    {isWinner && ' 🏆'}
+                  </p>
+                  <p className={clsx('font-mono font-bold text-2xl', p.pnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                    {p.pnlPct >= 0 ? '+' : ''}{p.pnlPct.toFixed(2)}%
+                  </p>
+                  <p className={clsx('font-mono text-xs mt-0.5', p.pnl >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                    {p.pnl >= 0 ? '+' : ''}£{Math.abs(p.pnl).toFixed(2)} return
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Stat comparison grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <StatCol label="Total Value" mine={me.liveValue} theirs={rival.liveValue} />
+            <StatCol label="Total P&L" mine={me.pnl} theirs={rival.pnl} />
+            <StatCol label="Cash" mine={me.cashBalance} theirs={rival.cashBalance} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-white/[0.03] rounded-xl p-3 text-center">
+              <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Started With</p>
+              <div className="flex justify-around">
+                <div>
+                  <p className="font-mono font-bold text-sm text-slate-200">£{me.initialBalance.toLocaleString()}</p>
+                  <p className="text-slate-600 text-[10px]">{me.displayName.split(' ')[0]}</p>
+                </div>
+                <div>
+                  <p className="font-mono font-bold text-sm text-slate-200">£{rival.initialBalance.toLocaleString()}</p>
+                  <p className="text-slate-600 text-[10px]">{rival.displayName.split(' ')[0]}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white/[0.03] rounded-xl p-3 text-center">
+              <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Holdings</p>
+              <div className="flex justify-around">
+                <div>
+                  <p className="font-mono font-bold text-sm text-slate-200">{currentHoldings.length}</p>
+                  <p className="text-slate-600 text-[10px]">{me.displayName.split(' ')[0]}</p>
+                </div>
+                <div>
+                  <p className="font-mono font-bold text-sm text-slate-200">{rival.holdings.length}</p>
+                  <p className="text-slate-600 text-[10px]">{rival.displayName.split(' ')[0]}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rival's holdings */}
+          <div className="bg-[#0A0F1E] border border-white/[0.06] rounded-xl overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 text-slate-200 font-semibold text-sm"
+              onClick={() => setRivalHoldingsOpen(o => !o)}
+            >
+              <span>{rival.displayName}'s Holdings ({rivalHoldings.length})</span>
+              {rivalHoldingsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {rivalHoldingsOpen && (
+              rivalHoldings.length === 0
+                ? <p className="text-slate-600 text-sm text-center py-5 border-t border-white/[0.06]">No holdings yet.</p>
+                : (
+                  <div className="overflow-x-auto border-t border-white/[0.06]">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                          {['Stock', 'Shares', 'Value', 'P&L'].map(h => (
+                            <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {rivalHoldings.map(h => (
+                          <tr key={h.companyId}>
+                            <td className="px-3 py-2.5">
+                              <p className="text-white text-xs font-bold">{h.symbol}</p>
+                              <p className="text-slate-600 text-[10px] truncate max-w-[100px]">{h.companyName}</p>
+                            </td>
+                            <td className="px-3 py-2.5 text-slate-400 font-mono text-xs">{h.shares.toLocaleString()}</td>
+                            <td className="px-3 py-2.5 text-white font-mono text-xs">£{h.value.toFixed(2)}</td>
+                            <td className="px-3 py-2.5">
+                              <span className={clsx('font-mono text-xs font-semibold', h.pnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                                {h.pnl >= 0 ? '+' : ''}£{h.pnl.toFixed(2)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+            )}
+          </div>
+
+          {/* Your holdings */}
+          <div className="bg-[#0A0F1E] border border-white/[0.06] rounded-xl overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 text-slate-200 font-semibold text-sm"
+              onClick={() => setMyHoldingsOpen(o => !o)}
+            >
+              <span>Your Holdings ({currentHoldings.length})</span>
+              {myHoldingsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {myHoldingsOpen && (
+              currentHoldings.length === 0
+                ? <p className="text-slate-600 text-sm text-center py-5 border-t border-white/[0.06]">No holdings yet.</p>
+                : (
+                  <div className="overflow-x-auto border-t border-white/[0.06]">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                          {['Stock', 'Shares', 'Value', 'Net P&L'].map(h => (
+                            <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {[...currentHoldings].sort((a, b) => b.value - a.value).map(h => (
+                          <tr key={h.companyId}>
+                            <td className="px-3 py-2.5">
+                              <p className="text-white text-xs font-bold">{h.symbol}</p>
+                              <p className="text-slate-600 text-[10px] truncate max-w-[100px]">{h.companyName}</p>
+                            </td>
+                            <td className="px-3 py-2.5 text-slate-400 font-mono text-xs">{h.shares.toLocaleString()}</td>
+                            <td className="px-3 py-2.5 text-white font-mono text-xs">£{h.value.toFixed(2)}</td>
+                            <td className="px-3 py-2.5">
+                              <span className={clsx('font-mono text-xs font-semibold', h.netPnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                                {h.netPnl >= 0 ? '+' : ''}£{h.netPnl.toFixed(2)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+            )}
+          </div>
+        </div>
+
+        <div className="px-5 py-3 border-t border-white/[0.06] shrink-0">
+          <p className="text-slate-600 text-[10px]">Holdings shown are the last published state. Values update with live market prices. Use each other's picks for inspiration.</p>
+        </div>
+      </>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#0D1424] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[88vh]"
+        onClick={e => e.stopPropagation()}>
+        {rival ? <CompareView /> : <LeaderboardView />}
+      </div>
+    </div>
+  );
+}
 
 // ── SET BALANCE SCREEN ────────────────────────────────────────────────────
 function SetBalanceScreen() {
@@ -521,7 +922,9 @@ export default function Portfolio() {
   const { holdings, cashBalance, isInitialised, initialBalance, snapshots, recordSnapshot, reset } = usePortfolioStore();
   const { stocks } = useMarketStore();
   const { taxBracket, cgtAllowance } = useSettingsStore();
+  const { user } = useAuthStore();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   function getPrice(companyId: string): number {
     const stock = stocks.find(s => s.id === companyId);
@@ -549,13 +952,35 @@ export default function Portfolio() {
           <h1 className="text-white text-xl font-bold">My Portfolio</h1>
           <p className="text-slate-500 text-sm mt-0.5">Shadow investing — real prices, virtual money</p>
         </div>
-        <button
-          onClick={() => setShowResetConfirm(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-all"
-        >
-          <RefreshCw size={12} /> Reset Portfolio
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCompare(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/30 text-violet-300 hover:text-violet-200 rounded-lg text-xs font-medium transition-all"
+          >
+            <Users size={12} /> Compare
+          </button>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-all"
+          >
+            <RefreshCw size={12} /> Reset Portfolio
+          </button>
+        </div>
       </div>
+
+      {/* Compare modal */}
+      {showCompare && (
+        <CompareModal
+          currentUid={user?.uid ?? ''}
+          currentDisplayName={user?.displayName || user?.email?.split('@')[0] || 'You'}
+          currentValue={stats.totalValue}
+          currentInitial={initialBalance}
+          currentCash={cashBalance}
+          currentHoldings={stats.enrichedHoldings}
+          stocks={stocks}
+          onClose={() => setShowCompare(false)}
+        />
+      )}
 
       {/* Reset confirm */}
       {showResetConfirm && (

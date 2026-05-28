@@ -11,7 +11,7 @@
  * is safe in every bundler / runtime.
  */
 
-import { doc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, Unsubscribe, collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 // ── Default shapes (used when a user's doc doesn't exist yet) ────────────
@@ -90,4 +90,36 @@ export async function savePortfolio(userId: string, data: object): Promise<void>
 
 export async function saveSettings(userId: string, data: object): Promise<void> {
   await setDoc(doc(db, 'settings', userId), data);
+}
+
+// ── Public leaderboard ────────────────────────────────────────────────────
+
+/** Writes a sanitised public summary of a user's portfolio to Firestore.
+ *  This document is readable by all authenticated users for the leaderboard. */
+export async function savePublicProfile(userId: string, data: object): Promise<void> {
+  await setDoc(doc(db, 'public_portfolios', userId), data);
+}
+
+export interface PublicHolding {
+  companyId: string;
+  symbol: string;
+  companyName: string;
+  sector: string;
+  shares: number;
+  avgBuyPrice: number; // pence
+}
+
+export interface PublicProfile {
+  uid: string;
+  displayName: string;
+  initialBalance: number; // GBP
+  cashBalance: number;    // GBP
+  holdings: PublicHolding[];
+  updatedAt: string;
+}
+
+/** Fetch all public portfolio documents for the leaderboard. */
+export async function fetchLeaderboard(): Promise<PublicProfile[]> {
+  const snap = await getDocs(collection(db, 'public_portfolios'));
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() } as PublicProfile));
 }
