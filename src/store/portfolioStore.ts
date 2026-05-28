@@ -77,7 +77,11 @@ export const usePortfolioStore = create<PortfolioState>()(
       snapshots: [],
       isInitialised: false,
 
-      _loadState: (data) => set(data as any),
+      _loadState: (data) => {
+        set(data as any);
+        // Publish public profile so user appears on leaderboard even without trading
+        persistPublic(get());
+      },
 
       setInitialBalance: (amount: number) => {
         set({ cashBalance: amount, initialBalance: amount, isInitialised: true });

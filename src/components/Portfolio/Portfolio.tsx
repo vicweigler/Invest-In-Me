@@ -955,7 +955,7 @@ export default function Portfolio() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCompare(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/30 text-violet-300 hover:text-violet-200 rounded-lg text-xs font-medium transition-all"
+            className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-all"
           >
             <Users size={12} /> Compare
           </button>

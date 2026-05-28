@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Settings, DollarSign, PiggyBank, Info, ChevronRight, Check,
-  Sun, Moon
+  Sun, Moon, RotateCcw
 } from 'lucide-react';
 import clsx from 'clsx';
 import {
@@ -9,7 +9,7 @@ import {
   CGT_RATES, TAX_BRACKET_LABELS, DEFAULT_CGT_ALLOWANCE
 } from '../store/settingsStore';
 
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 
 type TabId = 'trading' | 'tax';
 
@@ -355,6 +355,22 @@ export default function SettingsPage() {
       {/* Content */}
       {activeTab === 'trading' && <TradingCostsTab />}
       {activeTab === 'tax' && <TaxCGTTab />}
+
+      {/* Force reload (useful for iPhone web clip) */}
+      <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-slate-200 text-sm font-medium">Reload App</p>
+            <p className="text-slate-500 text-xs mt-0.5">Force a full refresh to pick up the latest version</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-4 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-400 hover:text-slate-200 rounded-lg text-sm font-medium transition-all shrink-0"
+          >
+            <RotateCcw size={14} /> Reload
+          </button>
+        </div>
+      </div>
 
       {/* Version */}
       <div className="pt-2 pb-4 text-center">
