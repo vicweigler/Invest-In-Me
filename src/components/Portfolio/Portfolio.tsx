@@ -280,9 +280,9 @@ function CompareModal({
               return (
                 <div key={player.uid} className={clsx(
                   'flex-1 rounded-xl p-4 border',
-                  pIsMe ? 'bg-white/[0.08] border-white/[0.16]' : 'bg-white/[0.02] border-white/[0.04]',
+                  pIsMe ? 'bg-white/[0.06] border-white/[0.10]' : 'bg-emerald-500/10 border-emerald-500/20',
                 )}>
-                  <p className={clsx('text-center text-xs font-bold mb-4', isWinner ? 'text-emerald-400' : pIsMe ? 'text-slate-300' : 'text-slate-500')}>
+                  <p className={clsx('text-center text-xs font-bold mb-4', pIsMe ? 'text-slate-300' : 'text-emerald-400')}>
                     {pIsMe ? 'You' : player.displayName.split(' ')[0]}{isWinner ? ' 👑' : ''}
                   </p>
                   <div className="flex items-end justify-around gap-2" style={{ height: `${BAR_H}px` }}>
