@@ -96,6 +96,7 @@ function CompareModal({
   }, [profiles, stocks, currentValue]);
 
   const me = ranked.find(p => p.uid === currentUid);
+  const maxAbsPct = Math.max(0.01, ...ranked.map(p => Math.abs(p.pnlPct)));
 
   // ── Leaderboard view ────────────────────────────────────────────────────
   const LeaderboardView = () => (
@@ -137,8 +138,16 @@ function CompareModal({
               disabled={isMe}
               onClick={() => { if (!isMe) setRival(p); }}
               className={clsx(
-                'w-full p-3 rounded-xl transition-all text-left flex items-center gap-3',
-                isMe ? 'bg-white/[0.04] border border-white/[0.08] cursor-default' : 'hover:bg-white/[0.04] cursor-pointer group',
+                'w-full p-3 rounded-xl transition-all text-left flex items-center gap-3 relative overflow-hidden',
+                isMe
+                  ? 'bg-white/[0.04] border border-white/[0.08] cursor-default'
+                  : p.rank === 1
+                    ? 'border border-yellow-500/[0.15] bg-yellow-500/[0.04] hover:bg-yellow-500/[0.07] cursor-pointer group'
+                    : p.rank === 2
+                      ? 'border border-slate-400/[0.12] bg-slate-400/[0.03] hover:bg-slate-400/[0.06] cursor-pointer group'
+                      : p.rank === 3
+                        ? 'border border-amber-600/[0.12] bg-amber-600/[0.03] hover:bg-amber-600/[0.06] cursor-pointer group'
+                        : 'hover:bg-white/[0.04] cursor-pointer group',
               )}
             >
               {/* Rank */}
@@ -170,6 +179,13 @@ function CompareModal({
                 </p>
               </div>
               {!isMe && <ArrowUpRight size={14} className="text-slate-600 group-hover:text-violet-400 shrink-0 transition-colors" />}
+              {/* Return % progress bar */}
+              <div className="absolute bottom-0 left-0 h-[2px] w-full bg-white/[0.03]">
+                <div
+                  className={clsx('h-full transition-all', p.pnlPct >= 0 ? 'bg-emerald-500/50' : 'bg-red-500/50')}
+                  style={{ width: `${(Math.abs(p.pnlPct) / maxAbsPct) * 100}%` }}
+                />
+              </div>
             </button>
           );
         })}
@@ -200,6 +216,11 @@ function CompareModal({
     }) => {
       const iWin = higherIsBetter ? mine > theirs : mine < theirs;
       const theyWin = higherIsBetter ? theirs > mine : theirs < mine;
+      const minVal = Math.min(mine, theirs, 0);
+      const myAdj = mine - minVal;
+      const theirAdj = theirs - minVal;
+      const barTotal = myAdj + theirAdj;
+      const myBarPct = barTotal > 0 ? Math.max(5, Math.min(95, (myAdj / barTotal) * 100)) : 50;
       return (
         <div className="bg-white/[0.03] rounded-xl p-3 text-center">
           <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-2">{label}</p>
@@ -218,12 +239,22 @@ function CompareModal({
               <p className="text-slate-600 text-[10px] mt-0.5">{rival.displayName.split(' ')[0]}</p>
             </div>
           </div>
+          <div className="mt-2 flex h-1 rounded-full overflow-hidden">
+            <div className={clsx('h-full', iWin ? 'bg-emerald-500/70' : 'bg-slate-600/50')} style={{ width: `${myBarPct}%` }} />
+            <div className={clsx('h-full flex-1', theyWin ? 'bg-emerald-500/70' : 'bg-slate-600/50')} />
+          </div>
         </div>
       );
     };
 
     const winner = me.pnlPct >= rival.pnlPct ? me : rival;
     const iAmWinning = me.pnlPct >= rival.pnlPct;
+    const minPct = Math.min(me.pnlPct, rival.pnlPct);
+    const myPctAdj = me.pnlPct - Math.min(0, minPct);
+    const theirPctAdj = rival.pnlPct - Math.min(0, minPct);
+    const splitTotal = myPctAdj + theirPctAdj;
+    const myHeadShare = splitTotal > 0 ? Math.max(5, Math.min(95, (myPctAdj / splitTotal) * 100)) : 50;
+    const pnlGap = Math.abs(me.pnlPct - rival.pnlPct);
 
     return (
       <>
@@ -269,6 +300,35 @@ function CompareModal({
                 </div>
               );
             })}
+          </div>
+
+          {/* Head-to-head split bar */}
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className={clsx('text-xs font-bold', iAmWinning ? 'text-emerald-400' : 'text-slate-400')}>
+                {iAmWinning && '👑 '}You
+              </span>
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Head to Head</span>
+              <span className={clsx('text-xs font-bold', !iAmWinning ? 'text-emerald-400' : 'text-slate-400')}>
+                {rival.displayName.split(' ')[0]}{!iAmWinning && ' 👑'}
+              </span>
+            </div>
+            <div className="flex h-6 rounded-lg overflow-hidden gap-[2px]">
+              <div
+                className={clsx('flex items-center justify-end pr-2 text-[9px] font-bold text-white transition-all', iAmWinning ? 'bg-emerald-500' : 'bg-slate-600')}
+                style={{ width: `${myHeadShare}%` }}
+              >
+                {me.pnlPct.toFixed(1)}%
+              </div>
+              <div
+                className={clsx('flex items-center justify-start pl-2 text-[9px] font-bold text-white transition-all flex-1', !iAmWinning ? 'bg-emerald-500' : 'bg-slate-700')}
+              >
+                {rival.pnlPct.toFixed(1)}%
+              </div>
+            </div>
+            <p className={clsx('text-center text-xs font-semibold mt-2', iAmWinning ? 'text-emerald-400' : 'text-amber-400')}>
+              {iAmWinning ? `👆 You're leading by ${pnlGap.toFixed(2)}%` : `⚠️ Behind by ${pnlGap.toFixed(2)}%`}
+            </p>
           </div>
 
           {/* Stat comparison grid */}
