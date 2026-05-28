@@ -283,7 +283,7 @@ function CompareModal({
               return (
                 <div key={p.uid} className={clsx(
                   'rounded-xl p-3 text-center border',
-                  isWinner ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.03] border-white/[0.06]'
+                  PANEL[i].bg, PANEL[i].border
                 )}>
                   <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-1 truncate">
                     {i === 0 ? 'You' : p.displayName.split(' ')[0]}
@@ -587,7 +587,9 @@ function AllocationPie({ holdings, getPrice }: { holdings: Holding[]; getPrice: 
               {slices.map((s, i) => <Cell key={i} fill={s.color} />)}
             </Pie>
             <Tooltip
-              contentStyle={{ background: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+              contentStyle={{ background: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12, color: '#fff' }}
+              labelStyle={{ color: '#fff' }}
+              itemStyle={{ color: '#fff' }}
               formatter={(v: number) => [`£${v.toFixed(2)} (${((v / total) * 100).toFixed(1)}%)`, '']}
             />
           </PieChart>
