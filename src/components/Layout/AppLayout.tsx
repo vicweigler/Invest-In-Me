@@ -10,6 +10,39 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { formatPerf, perfColor } from '../../data/generator';
 import clsx from 'clsx';
 
+function SignOutConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-[#0F172A] border border-white/[0.08] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/20 flex items-center justify-center shrink-0">
+            <LogOut size={18} className="text-red-400" />
+          </div>
+          <div>
+            <h2 className="text-white font-semibold text-base">Sign out?</h2>
+            <p className="text-slate-400 text-sm mt-0.5">You'll need to sign back in to access your account.</p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.05] border border-white/[0.08] text-slate-300 hover:bg-white/[0.08] transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const NAV_ITEMS = [
   { to: '/', label: 'My Portfolio', icon: Briefcase },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -44,12 +77,15 @@ function LiveClock() {
 
 function UserMenu() {
   const { user, signOut } = useAuthStore();
+  const [showConfirm, setShowConfirm] = useState(false);
   if (!user) return null;
 
   const initial = user.displayName?.[0]?.toUpperCase() ?? user.email?.[0]?.toUpperCase() ?? '?';
   const name = user.displayName ?? user.email ?? 'Account';
 
   return (
+    <>
+      {showConfirm && <SignOutConfirmDialog onConfirm={signOut} onCancel={() => setShowConfirm(false)} />}
     <div className="flex items-center gap-2 ml-3 min-w-0">
       <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.07] rounded-full pl-1 pr-2 sm:pr-3 py-1 min-w-0">
         {user.photoURL ? (
@@ -60,13 +96,14 @@ function UserMenu() {
         <span className="hidden sm:block text-slate-300 text-xs font-medium max-w-[120px] truncate">{name}</span>
       </div>
       <button
-        onClick={signOut}
+        onClick={() => setShowConfirm(true)}
         title="Sign out"
         className="hidden sm:block p-1.5 text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] rounded-lg transition-all"
       >
         <LogOut size={15} />
       </button>
     </div>
+    </>
   );
 }
 
@@ -74,6 +111,7 @@ export default function AppLayout() {
   const location = useLocation();
   const { stocks, isLoaded, loadMarket, lastUpdated } = useMarketStore();
   const { signOut } = useAuthStore();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const { lightMode } = useSettingsStore();
   const indexLevel = ftse100IndexLevel(stocks);
 
@@ -214,7 +252,7 @@ export default function AppLayout() {
           })}
           {/* Sign out — rightmost */}
           <button
-            onClick={signOut}
+            onClick={() => setShowSignOutConfirm(true)}
             className="flex-1 flex flex-col items-center justify-center gap-1 py-2 text-slate-500 transition-all"
           >
             <LogOut size={20} />
@@ -223,6 +261,7 @@ export default function AppLayout() {
         </div>
         <div style={{height: 'env(safe-area-inset-bottom)'}} className="bg-[#0D1424]" />
       </nav>
+      {showSignOutConfirm && <SignOutConfirmDialog onConfirm={signOut} onCancel={() => setShowSignOutConfirm(false)} />}
     </div>
   );
 }
