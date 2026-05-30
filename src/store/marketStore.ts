@@ -66,9 +66,18 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     });
   },
 
-  // Simulated live price tick (small random movement)
+  // Simulated live price tick (small random movement) — only runs during market hours
   tickPrices: () => {
-    const { stocks } = get();
+    const { stocks, isLive } = get();
+    // Only tick if we have real prices AND market is currently open (Mon–Fri 08:00–16:30 UK)
+    const now = new Date();
+    const day = now.getDay(); // 0=Sun, 6=Sat
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const minuteOfDay = h * 60 + m;
+    const marketOpen = day >= 1 && day <= 5 && minuteOfDay >= 480 && minuteOfDay < 990; // 08:00–16:30
+
+    if (!isLive || !marketOpen) return;
     const updated = stocks.map(s => {
       const movePct = (Math.random() - 0.498) * 0.004; // tiny random walk
       const newPrice = Math.max(s.currentPrice * (1 + movePct), 1);
