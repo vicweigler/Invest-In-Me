@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { StockData } from '../types';
 import { FTSE100_COMPANIES } from '../data/companies';
-import { buildStockData } from '../data/generator';
+import { buildStockData, seededRng } from '../data/generator';
 import { fetchRealQuotes, fetchFundamentals, FundamentalData } from '../services/marketData';
 
 interface MarketState {
@@ -78,8 +78,11 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     const marketOpen = day >= 1 && day <= 5 && minuteOfDay >= 480 && minuteOfDay < 990; // 08:00–16:30
 
     if (!isLive || !marketOpen) return;
+    // Seed per-stock per-minute so the same tick always produces the same nudge
+    const minuteKey = now.getFullYear() * 100000 + (now.getMonth() + 1) * 1000 + now.getDate() * 10 + Math.floor(minuteOfDay);
     const updated = stocks.map(s => {
-      const movePct = (Math.random() - 0.498) * 0.004; // tiny random walk
+      const rng = seededRng(parseInt(s.id) * 7919 + minuteKey);
+      const movePct = (rng() - 0.498) * 0.004;
       const newPrice = Math.max(s.currentPrice * (1 + movePct), 1);
       const newDayPerf = s.dayPerf + movePct * 100;
       return { ...s, currentPrice: Math.round(newPrice * 100) / 100, dayPerf: newDayPerf };

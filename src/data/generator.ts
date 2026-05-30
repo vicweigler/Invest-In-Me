@@ -1,7 +1,7 @@
 import { CompanyDefinition, PricePoint, StockData } from '../types';
 
 // Seeded pseudo-random number generator (LCG)
-function seededRng(seed: number) {
+export function seededRng(seed: number) {
   let s = (seed * 1664525 + 1013904223) >>> 0;
   return function () {
     s = (s * 1664525 + 1013904223) >>> 0;
