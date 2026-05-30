@@ -86,7 +86,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     cgtAllowance: DEFAULT_CGT_ALLOWANCE,
     lightMode: false,
 
-    _loadState: (data) => set(data as any),
+    _loadState: (data) => {
+      set(data as any);
+      if (data.lightMode !== undefined) {
+        try { localStorage.setItem('ii-theme', data.lightMode ? 'light' : 'dark'); } catch {}
+      }
+    },
 
     updateTradingCosts: (costs) => {
       set(s => ({ tradingCosts: { ...s.tradingCosts, ...costs } }));
@@ -104,7 +109,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     },
 
     toggleLightMode: () => {
-      set(s => ({ lightMode: !s.lightMode }));
+      const newVal = !get().lightMode;
+      set({ lightMode: newVal });
+      try { localStorage.setItem('ii-theme', newVal ? 'light' : 'dark'); } catch {}
       persistSettings();
     },
 

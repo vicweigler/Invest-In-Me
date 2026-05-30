@@ -9,7 +9,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Invest-In-It" />
     <meta name="theme-color" content="#0D1424" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Apply saved theme BEFORE first paint so the Android nav bar never flickers white -->
+    <script>
+      try {
+        if (localStorage.getItem('ii-theme') === 'light') {
+          document.documentElement.classList.add('light-mode');
+          document.documentElement.style.colorScheme = 'light';
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#FFFFFF');
+          document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'light');
+        }
+      } catch(e) {}
+    </script>
     <title>Invest-In-It — FTSE 100 Shadow Trading</title>
     <meta name="description" content="Monitor FTSE 100 stocks, track performance, and shadow invest with a virtual portfolio." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

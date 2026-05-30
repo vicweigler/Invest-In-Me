@@ -243,11 +243,17 @@ export function computePortfolioStats(
   holdings: Holding[],
   cashBalance: number,
   getPrice: (companyId: string) => number,
-  cgtSettings?: { taxBracket: TaxBracket; cgtAllowance: number }
+  cgtSettings?: {
+    taxBracket: TaxBracket;
+    cgtAllowance: number;
+    /** Used to correctly compute gross P&L including realised gains. */
+    initialBalance?: number;
+    /** All portfolio transactions — needed to include fees from closed positions. */
+    allTransactions?: Transaction[];
+  }
 ) {
   let totalValue = cashBalance;
   let totalCostBasis = 0;
-  let totalFeesPaid = 0;
 
   const enriched: EnrichedHolding[] = holdings.map(h => {
     const currentPrice = getPrice(h.companyId);
@@ -261,7 +267,6 @@ export function computePortfolioStats(
 
     totalValue += value;
     totalCostBasis += costBasis;
-    totalFeesPaid += holdingFees;
 
     return {
       ...h,
@@ -273,10 +278,20 @@ export function computePortfolioStats(
     };
   });
 
+  // Sum fees from ALL transactions (including fees from closed positions).
+  const totalFeesPaid = cgtSettings?.allTransactions
+    ? cgtSettings.allTransactions.reduce((sum, tx) => sum + tx.fees, 0)
+    : enriched.reduce((sum, h) => sum + h.totalFees, 0);
+
+  // Net P&L = current total value vs starting balance (fees already embedded in cashBalance).
+  // Gross P&L = net + all fees paid back (what you'd have made with zero fees).
+  const initialBalance = cgtSettings?.initialBalance;
+  const portfolioNetPnl = initialBalance != null ? totalValue - initialBalance : totalValue - cashBalance - totalCostBasis;
+  const portfolioGrossPnl = portfolioNetPnl + totalFeesPaid;
   const invested = totalCostBasis;
-  const portfolioGrossPnl = totalValue - cashBalance - invested;
-  const portfolioNetPnl = portfolioGrossPnl - totalFeesPaid;
-  const portfolioGrossPnlPct = invested > 0 ? (portfolioGrossPnl / invested) * 100 : 0;
+  const portfolioGrossPnlPct = initialBalance != null && initialBalance > 0
+    ? (portfolioGrossPnl / initialBalance) * 100
+    : invested > 0 ? (portfolioGrossPnl / invested) * 100 : 0;
 
   let cgtLiability = 0;
   if (cgtSettings && portfolioGrossPnl > 0) {

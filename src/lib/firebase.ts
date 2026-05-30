@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, memoryLocalCache } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,7 +15,12 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
-// Persistent local cache = Firestore works offline and syncs when reconnected
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
-});
+// Persistent cache = offline support. Fall back to memory if IndexedDB is
+// unavailable (private browsing, Samsung Internet restrictions, etc.).
+let db: ReturnType<typeof initializeFirestore>;
+try {
+  db = initializeFirestore(app, { localCache: persistentLocalCache() });
+} catch {
+  db = initializeFirestore(app, { localCache: memoryLocalCache() });
+}
+export { db };

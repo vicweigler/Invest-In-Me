@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { TrendingUp } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, Download, Share, RotateCcw } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 function GoogleIcon() {
@@ -20,6 +20,34 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState<Event & { prompt: () => void; userChoice: Promise<{ outcome: string }> } | null>(null);
+  const [showIosHint, setShowIosHint] = useState(false);
+  const [showSamsungHint, setShowSamsungHint] = useState(false);
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSamsung = /SamsungBrowser/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+
+  useEffect(() => {
+    // Pick up any prompt captured before React mounted
+    const early = (window as any).__pwaInstallPrompt;
+    if (early) setDeferredPrompt(early);
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      (window as any).__pwaInstallPrompt = e;
+      setDeferredPrompt(e as any);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +177,64 @@ export default function LoginPage() {
         <p className="text-slate-600 text-xs text-center mt-5 leading-relaxed">
           For educational purposes only. Not financial advice.
         </p>
+      </div>
+
+      {/* PWA install */}
+      {!isStandalone && (isIos || isSamsung || deferredPrompt) && (
+        <div className="mt-6 relative">
+          {isIos ? (
+            <>
+              <button
+                onClick={() => setShowIosHint(h => !h)}
+                className="flex items-center gap-2 text-slate-500 hover:text-slate-300 text-xs transition-colors px-3 py-1.5 rounded-lg border border-white/[0.06] hover:border-white/[0.12]"
+              >
+                <Share size={13} />
+                Add to Home Screen
+              </button>
+              {showIosHint && (
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-[#1E293B] border border-white/[0.1] rounded-xl p-3 text-xs text-slate-300 shadow-2xl text-center">
+                  Tap the <span className="font-semibold text-white">Share</span> button in Safari, then choose <span className="font-semibold text-white">"Add to Home Screen"</span>.
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1E293B]" />
+                </div>
+              )}
+            </>
+          ) : isSamsung && !deferredPrompt ? (
+            <>
+              <button
+                onClick={() => setShowSamsungHint(h => !h)}
+                className="flex items-center gap-2 text-slate-500 hover:text-slate-300 text-xs transition-colors px-3 py-1.5 rounded-lg border border-white/[0.06] hover:border-white/[0.12]"
+              >
+                <Download size={13} />
+                Install app
+              </button>
+              {showSamsungHint && (
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 bg-[#1E293B] border border-white/[0.1] rounded-xl p-3 text-xs text-slate-300 shadow-2xl text-center">
+                  Tap the <span className="font-semibold text-white">menu (⋮)</span> in Samsung Internet, choose <span className="font-semibold text-white">"Add page to"</span>, then <span className="font-semibold text-white">"Home screen"</span>.
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1E293B]" />
+                </div>
+              )}
+            </>
+          ) : (
+            <button
+              onClick={handleInstall}
+              className="flex items-center gap-2 text-slate-500 hover:text-slate-300 text-xs transition-colors px-3 py-1.5 rounded-lg border border-white/[0.06] hover:border-white/[0.12]"
+            >
+              <Download size={13} />
+              Install app
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Reload */}
+      <div className="mt-4">
+        <button
+          onClick={() => window.location.reload()}
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-400 text-xs transition-colors px-3 py-1.5 rounded-lg border border-white/[0.04] hover:border-white/[0.10]"
+        >
+          <RotateCcw size={12} />
+          Reload App
+        </button>
       </div>
     </div>
   );

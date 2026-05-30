@@ -510,7 +510,7 @@ export default function Dashboard() {
         <SummaryCard label="Total Volume" value={`${totalVolume.toFixed(0)}M`}
           sub="shares traded today" />
         <SummaryCard label="Market Status"
-          value={new Date().getHours() >= 8 && new Date().getHours() < 16 ? 'OPEN' : 'CLOSED'}
+          value={(() => { const _d = new Date(); const _h = _d.getHours(); const _m = _d.getMinutes(); return (_h > 8 || (_h === 8 && _m >= 0)) && (_h < 16 || (_h === 16 && _m < 30)) ? 'OPEN' : 'CLOSED'; })()}
           sub="LSE 08:00 – 16:30 GMT" />
       </div>
 

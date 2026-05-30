@@ -9,6 +9,8 @@
 html {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
+  background-color: #0A0F1E;
+  color-scheme: dark;
 }
 
 body {
@@ -20,6 +22,7 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
 }
 
 /* Scrollbar styling */
@@ -54,6 +57,10 @@ input[type='number'] {
 }
 
 /* ── LIGHT MODE ─────────────────────────────────────────────────────────── */
+html.light-mode {
+  color-scheme: light;
+  background-color: #F1F5F9;
+}
 html.light-mode body {
   background-color: #F1F5F9;
   color: #0F172A;

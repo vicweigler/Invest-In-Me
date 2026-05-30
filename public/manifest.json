@@ -1,24 +1,19 @@
 {
+  "id": "/",
   "name": "Invest-In-It",
   "short_name": "Invest-In-It",
   "description": "FTSE 100 shadow trading portfolio tracker",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0A0F1E",
   "theme_color": "#0D1424",
   "orientation": "portrait-primary",
+  "prefer_related_applications": false,
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

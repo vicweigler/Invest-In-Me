@@ -975,7 +975,7 @@ function YearProjection({ enrichedHoldings }: { enrichedHoldings: EnrichedHoldin
 
 // ── MAIN PORTFOLIO ─────────────────────────────────────────────────────────
 export default function Portfolio() {
-  const { holdings, cashBalance, isInitialised, initialBalance, snapshots, recordSnapshot, reset } = usePortfolioStore();
+  const { holdings, cashBalance, isInitialised, initialBalance, transactions, snapshots, recordSnapshot, reset } = usePortfolioStore();
   const { stocks } = useMarketStore();
   const { taxBracket, cgtAllowance } = useSettingsStore();
   const { user } = useAuthStore();
@@ -987,7 +987,9 @@ export default function Portfolio() {
     return stock?.currentPrice ?? 0;
   }
 
-  const stats = computePortfolioStats(holdings, cashBalance, getPrice, { taxBracket, cgtAllowance });
+  const stats = computePortfolioStats(holdings, cashBalance, getPrice, {
+    taxBracket, cgtAllowance, initialBalance, allTransactions: transactions,
+  });
   const totalReturn = stats.totalValue - initialBalance;
   const totalReturnPct = initialBalance > 0 ? (totalReturn / initialBalance) * 100 : 0;
 

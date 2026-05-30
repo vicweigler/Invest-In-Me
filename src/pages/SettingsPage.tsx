@@ -8,8 +8,7 @@ import {
   useSettingsStore, TaxBracket, FeeType,
   CGT_RATES, TAX_BRACKET_LABELS, DEFAULT_CGT_ALLOWANCE
 } from '../store/settingsStore';
-
-const APP_VERSION = '1.7.0';
+import { APP_VERSION } from '../version';
 
 type TabId = 'trading' | 'tax';
 

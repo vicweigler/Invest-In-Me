@@ -12,8 +12,8 @@ import clsx from 'clsx';
 
 const NAV_ITEMS = [
   { to: '/', label: 'My Portfolio', icon: Briefcase },
-  { to: '/market', label: 'FTSE 100', icon: BarChart2 },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/market', label: 'FTSE 100', icon: BarChart2 },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -24,7 +24,8 @@ function LiveClock() {
     return () => clearInterval(t);
   }, []);
   const h = time.getHours();
-  const isOpen = h >= 8 && h < 16;
+  const m = time.getMinutes();
+  const isOpen = (h > 8 || (h === 8 && m >= 0)) && (h < 16 || (h === 16 && m < 30));
   return (
     <div className="flex items-center gap-3">
       <div className={clsx('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold',
@@ -71,13 +72,29 @@ function UserMenu() {
 
 export default function AppLayout() {
   const location = useLocation();
-  const { stocks, lastUpdated } = useMarketStore();
+  const { stocks, isLoaded, loadMarket, lastUpdated } = useMarketStore();
   const { signOut } = useAuthStore();
   const { lightMode } = useSettingsStore();
   const indexLevel = ftse100IndexLevel(stocks);
 
+  // Ensure market data is loaded regardless of which page the user lands on
+  useEffect(() => { if (!isLoaded) loadMarket(); }, [isLoaded, loadMarket]);
+
   useEffect(() => {
+    const color = lightMode ? '#FFFFFF' : '#0D1424';
+    const scheme = lightMode ? 'light' : 'dark';
+
     document.documentElement.classList.toggle('light-mode', lightMode);
+    // Keep color-scheme in sync on the element itself (fastest signal to Android)
+    document.documentElement.style.colorScheme = scheme;
+
+    // Update every meta signal that Android / Samsung Internet reads for the nav bar
+    const metaTheme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.content = color;
+
+    const metaScheme = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
+    if (metaScheme) metaScheme.content = scheme;
+
     return () => { document.documentElement.classList.remove('light-mode'); };
   }, [lightMode]);
 
@@ -169,39 +186,42 @@ export default function AppLayout() {
         </aside>
 
         {/* ── MAIN CONTENT ───────────────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16 md:pb-0 min-w-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden md:pb-0 min-w-0" style={{paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))'}}>          
           <Outlet />
         </main>
       </div>
 
       {/* ── BOTTOM NAV — mobile only ────────────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0D1424] border-t border-white/[0.06] flex items-center z-50">
-        {/* Sign out — leftmost */}
-        <button
-          onClick={signOut}
-          className="flex-1 flex flex-col items-center justify-center gap-1 py-2 text-slate-500 transition-all"
-        >
-          <LogOut size={20} />
-          <span className="text-[10px] font-medium">Sign Out</span>
-        </button>
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
-          const active = to === '/'
-            ? location.pathname === '/'
-            : location.pathname.startsWith(to);
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={clsx(
-                'flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all',
-                active ? 'text-indigo-400' : 'text-slate-500'
-              )}
-            >
-              <Icon size={20} />
-              <span className="text-[10px] font-medium">{label}</span>
-            </Link>
-          );
-        })}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0D1424] border-t border-white/[0.06] flex flex-col z-50">
+        <div className="flex items-center h-16">
+          {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+            const active = to === '/'
+              ? location.pathname === '/'
+              : location.pathname.startsWith(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={clsx(
+                  'flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all',
+                  active ? 'text-indigo-400' : 'text-slate-500'
+                )}
+              >
+                <Icon size={20} />
+                <span className="text-[10px] font-medium">{label}</span>
+              </Link>
+            );
+          })}
+          {/* Sign out — rightmost */}
+          <button
+            onClick={signOut}
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 text-slate-500 transition-all"
+          >
+            <LogOut size={20} />
+            <span className="text-[10px] font-medium">Sign Out</span>
+          </button>
+        </div>
+        <div style={{height: 'env(safe-area-inset-bottom)'}} className="bg-[#0D1424]" />
       </nav>
     </div>
   );
