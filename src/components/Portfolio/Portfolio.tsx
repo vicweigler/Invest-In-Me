@@ -523,6 +523,7 @@ function SetBalanceScreen() {
 // ── PORTFOLIO CHART ────────────────────────────────────────────────────────
 function PortfolioChart({ totalValue }: { totalValue: number }) {
   const { snapshots, initialBalance } = usePortfolioStore();
+  const [expanded, setExpanded] = useState(true);
 
   const chartData = snapshots.length > 0
     ? snapshots.map(s => ({ date: s.date, value: s.totalValue }))
@@ -532,32 +533,42 @@ function PortfolioChart({ totalValue }: { totalValue: number }) {
   const isPos = totalValue >= start;
 
   return (
-    <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-slate-200 font-semibold text-sm">Portfolio Value Over Time</h3>
-        <span className={clsx('text-sm font-semibold', isPos ? 'text-emerald-400' : 'text-red-400')}>
-          {isPos ? '+' : ''}£{(totalValue - start).toFixed(2)} total
-        </span>
-      </div>
-      <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
-          <defs>
-            <linearGradient id="pf-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={isPos ? '#10B981' : '#F43F5E'} stopOpacity={0.2} />
-              <stop offset="95%" stopColor={isPos ? '#10B981' : '#F43F5E'} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-          <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} />
-          <YAxis tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={v => `£${(v / 1000).toFixed(0)}k`} domain={['auto', 'auto']} />
-          <Tooltip
-            contentStyle={{ background: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-            formatter={(v: number) => [`£${v.toFixed(2)}`, 'Portfolio Value']}
-          />
-          <Area type="monotone" dataKey="value" stroke={isPos ? '#10B981' : '#F43F5E'} strokeWidth={2}
-            fill="url(#pf-grad)" dot={false} activeDot={{ r: 4 }} />
-        </AreaChart>
-      </ResponsiveContainer>
+    <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-5 py-4 text-slate-200 font-semibold text-sm"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <span>Portfolio Value Over Time</span>
+        <div className="flex items-center gap-2">
+          <span className={clsx('text-sm font-semibold', isPos ? 'text-emerald-400' : 'text-red-400')}>
+            {isPos ? '+' : ''}£{(totalValue - start).toFixed(2)}
+          </span>
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </div>
+      </button>
+      {expanded && (
+        <div className="border-t border-white/[0.06] p-5">
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="pf-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={isPos ? '#10B981' : '#F43F5E'} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={isPos ? '#10B981' : '#F43F5E'} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={v => `£${(v / 1000).toFixed(0)}k`} domain={['auto', 'auto']} />
+              <Tooltip
+                contentStyle={{ background: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+                formatter={(v: number) => [`£${v.toFixed(2)}`, 'Portfolio Value']}
+              />
+              <Area type="monotone" dataKey="value" stroke={isPos ? '#10B981' : '#F43F5E'} strokeWidth={2}
+                fill="url(#pf-grad)" dot={false} activeDot={{ r: 4 }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
@@ -565,6 +576,7 @@ function PortfolioChart({ totalValue }: { totalValue: number }) {
 // ── ALLOCATION PIE ─────────────────────────────────────────────────────────
 function AllocationPie({ holdings, getPrice }: { holdings: Holding[]; getPrice: (id: string) => number }) {
   type Slice = { name: string; value: number; color: string; };
+  const [expanded, setExpanded] = useState(true);
   const slices: Slice[] = holdings.map(h => {
     const price = getPrice(h.companyId);
     const val = (h.shares * price) / 100;
@@ -577,9 +589,15 @@ function AllocationPie({ holdings, getPrice }: { holdings: Holding[]; getPrice: 
   const total = slices.reduce((s, x) => s + x.value, 0);
 
   return (
-    <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl p-5">
-      <h3 className="text-slate-200 font-semibold text-sm mb-4">Allocation</h3>
-      <div className="flex items-center gap-4">
+    <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-5 py-4 text-slate-200 font-semibold text-sm"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <span>Allocation</span>
+        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {expanded && <div className="border-t border-white/[0.06] p-5"><div className="flex items-center gap-4">
         <ResponsiveContainer width={160} height={160}>
           <PieChart>
             <Pie data={slices} cx="50%" cy="50%" innerRadius={45} outerRadius={75}
@@ -603,7 +621,7 @@ function AllocationPie({ holdings, getPrice }: { holdings: Holding[]; getPrice: 
             </div>
           ))}
         </div>
-      </div>
+      </div></div>}
     </div>
   );
 }
@@ -1000,6 +1018,8 @@ export default function Portfolio() {
     }
   }, [isInitialised]);
 
+  const [valueExpanded, setValueExpanded] = useState(true);
+
   if (!isInitialised) return <SetBalanceScreen />;
 
   return (
@@ -1051,29 +1071,42 @@ export default function Portfolio() {
         </div>
       )}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl p-4">
-          <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Total Value</p>
-          <p className="text-white font-mono font-bold text-2xl">£{stats.totalValue.toFixed(2)}</p>
-        </div>
-        <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl p-4">
-          <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Cash Balance</p>
-          <p className="text-white font-mono font-bold text-2xl">£{cashBalance.toFixed(2)}</p>
-        </div>
-        <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl p-4">
-          <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Invested</p>
-          <p className="text-white font-mono font-bold text-2xl">£{stats.totalCostBasis.toFixed(2)}</p>
-        </div>
-        <div className={clsx('border rounded-xl p-4', totalReturn >= 0 ? 'bg-emerald-500/[0.05] border-emerald-500/20' : 'bg-red-500/[0.05] border-red-500/20')}>
-          <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Total Return</p>
-          <p className={clsx('font-mono font-bold text-2xl', totalReturn >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-            {totalReturn >= 0 ? '+' : ''}£{totalReturn.toFixed(2)}
-          </p>
-          <p className={clsx('text-xs font-semibold mt-0.5', totalReturn >= 0 ? 'text-emerald-500' : 'text-red-500')}>
-            {formatPerf(totalReturnPct)} since start
-          </p>
-        </div>
+      {/* Portfolio Value — collapsible */}
+      <div className="bg-[#0F172A] border border-white/[0.06] rounded-xl overflow-hidden">
+        <button
+          className="w-full flex items-center justify-between px-5 py-4 text-slate-200 font-semibold text-sm"
+          onClick={() => setValueExpanded(e => !e)}
+        >
+          <span>Portfolio Value</span>
+          {valueExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {valueExpanded && (
+          <div className="border-t border-white/[0.06] p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white/[0.03] rounded-xl p-4">
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Total Value</p>
+                <p className="text-white font-mono font-bold text-2xl">£{stats.totalValue.toFixed(2)}</p>
+              </div>
+              <div className="bg-white/[0.03] rounded-xl p-4">
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Cash Balance</p>
+                <p className="text-white font-mono font-bold text-2xl">£{cashBalance.toFixed(2)}</p>
+              </div>
+              <div className="bg-white/[0.03] rounded-xl p-4">
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Invested</p>
+                <p className="text-white font-mono font-bold text-2xl">£{stats.totalCostBasis.toFixed(2)}</p>
+              </div>
+              <div className={clsx('rounded-xl p-4', totalReturn >= 0 ? 'bg-emerald-500/[0.05] border border-emerald-500/20' : 'bg-red-500/[0.05] border border-red-500/20')}>
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Total Return</p>
+                <p className={clsx('font-mono font-bold text-2xl', totalReturn >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                  {totalReturn >= 0 ? '+' : ''}£{totalReturn.toFixed(2)}
+                </p>
+                <p className={clsx('text-xs font-semibold mt-0.5', totalReturn >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                  {formatPerf(totalReturnPct)} since start
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Charts row */}

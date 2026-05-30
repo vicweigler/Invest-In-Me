@@ -105,7 +105,7 @@ export default function AppLayout() {
   const isPositive = avgDayPerf >= 0;
 
   return (
-    <div className="min-h-screen bg-[#0A0F1E] flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="h-screen bg-[#0A0F1E] flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* ── TOP HEADER ─────────────────────────────────────────────────────── */}
       <header className="h-14 border-b border-white/[0.06] bg-[#0D1424] flex items-center px-4 gap-3 shrink-0 z-50">
         {/* Logo */}

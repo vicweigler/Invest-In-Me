@@ -1,8 +1,11 @@
-const functions = require('firebase-functions');
+const { onRequest } = require('firebase-functions/v2/https');
+const { setGlobalOptions } = require('firebase-functions/v2');
 
 // yahoo-finance2 v3 requires class instantiation
 const YahooFinance = require('yahoo-finance2').default;
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+
+setGlobalOptions({ timeoutSeconds: 120, memory: '256MiB' });
 
 function setCors(res) {
   res.set('Access-Control-Allow-Origin', '*');
@@ -14,7 +17,7 @@ function setCors(res) {
  * GET /quotes?symbols=LLOY.L,AZN.L,...
  * Returns Yahoo Finance quote data in the same shape as the Vite dev proxy.
  */
-exports.quotes = functions.https.onRequest(async (req, res) => {
+exports.quotes = onRequest({ cors: true }, async (req, res) => {
   setCors(res);
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -54,9 +57,7 @@ exports.quotes = functions.https.onRequest(async (req, res) => {
  * Returns Yahoo Finance quoteSummary (financialData + defaultKeyStatistics)
  * for real fundamental data used by the Stock Scan scoring engine.
  */
-exports.fundamentals = functions
-  .runWith({ timeoutSeconds: 120, memory: '256MB' })
-  .https.onRequest(async (req, res) => {
+exports.fundamentals = onRequest({ cors: true }, async (req, res) => {
     setCors(res);
     if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
 
